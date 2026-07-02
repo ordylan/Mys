@@ -1,0 +1,19 @@
+{
+  "name": "myfqs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "vue": "^3.3.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-vue": "^4.0.0"
+  }
+}

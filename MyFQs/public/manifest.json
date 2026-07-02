@@ -1,0 +1,19 @@
+{
+    "name": "MyFQs",
+    "short_name": "FQs",
+    "icons": [{
+      "src": "MyFQs.ico",
+      "sizes": "128x128",
+      "type": "image/vnd.microsoft.icon"
+    },{
+      "src": "MyFQs.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }],
+    "description": "GaoKaoBiSheng",
+    "display": "standalone",
+    "background_color": "#E6E6E6",
+    "theme_color": "#E6E6E6",
+    "start_url": "/MyFQs/",
+    "scope": "/MyFQs/"
+}
