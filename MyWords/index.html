@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>MyWords - 单词学习</title>
+    <script src="jszip.min.js">
+    </script>
+    <style>
+        #progressBar {
+            z-index: 30;
+            position: fixed;
+            top: 0;
+            inset-inline-start: 0;
+            width: 0;
+            padding: 0;
+            margin: 0;
+            transition: width 0.2s ease;
+            animation: progressAnimation 4s ease infinite;
+        }
+        #progressBackground {
+            height: 37px;
+            margin-top: -26px;
+            background-image: linear-gradient(var(--progressbar-shadow-start), var(--in-content-page-background) 100%),
+                var(--progressbar-gradient);
+            background-position: inherit;
+            filter: blur(5px);
+            border-end-end-radius: 33px;
+        }
+        #progressSolid {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 66%;
+            background-image: var(--progressbar-gradient);
+            background-position: inherit;
+        }
+        #progressBackground,
+        #progressSolid {
+            background-size: 200% 100%;
+        }
+        :root {
+            --progressbar-shadow-start: rgba(255, 255, 255, 0.7);
+            --progressbar-gradient: linear-gradient(90deg, #ffc519 0%, #FC00FF 50%, #FFD700 100%);
+            --in-content-page-background: #fff;
+        }
+        @keyframes progressAnimation {
+            0% {
+                background-position: 200%;
+            }
+            50% {
+                background-position: 100%;
+            }
+            100% {
+                background-position: 0%;
+            }
+        }
+
+        body {
+            font-family: sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 16px;
+            color: #333;
+        }
+        h1,
+        h2,
+        h3 {
+            margin: 12px 0 6px;
+        }
+        hr {
+            margin: 16px 0;
+            border: none;
+            border-top: 1px solid #ddd;
+        }
+        select,
+        input[type="number"],
+        input[type="text"] {
+            padding: 6px 8px;
+            font-size: 14px;
+            border: 1px solid #bbb;
+            border-radius: 3px;
+        }
+        button {
+            padding: 7px 14px;
+            font-size: 14px;
+            border: 1px solid #aaa;
+            border-radius: 3px;
+            background: #f5f5f5;
+            cursor: pointer;
+            margin: 2px;
+        }
+        button:hover {
+            background: #e8e8e8;
+        }
+        button.active-mode {
+            background: #4a90d9;
+            color: #fff;
+            border-color: #3a7bc8;
+        }
+        .option-btn {
+            display: block;
+            margin: 6px 0;
+            padding: 10px 12px;
+            width: 100%;
+            text-align: left;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .option-btn:hover {
+            background: #eef5ff;
+            border-color: #b0c8e8;
+        }
+        .option-btn.correct-pick {
+            background: #d4edda;
+            border-color: #a3d9a5;
+        }
+        .option-btn.wrong-pick {
+            background: #fce4e4;
+            border-color: #f0b8b8;
+        }
+        #wordDetailsBox {
+            border: 1px solid #ddd;
+            padding: 14px;
+            margin: 10px 0;
+            background: #fdfdfd;
+            border-radius: 3px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        #wordDetailsBox ul {
+            margin: 4px 0 8px 18px;
+            padding: 0;
+        }
+        #wordDetailsBox li {
+            margin: 2px 0;
+        }
+        #statusMsg {
+            font-size: 14px;
+            min-height: 20px;
+            margin: 4px 0;
+        }
+        #dictationInput {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 2px solid #bbb;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        #dictationInput:focus {
+            border-color: #4a90d9;
+            outline: none;
+        }
+        .result-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+        .result-correct {
+            color: #2a8c3e;
+        }
+        .result-wrong {
+            color: #c0392b;
+        }
+        img.word-img {
+            max-width: 200px;
+            margin: 8px 0;
+            border-radius: 3px;
+            border: 1px solid #eee;
+        }
+        .mode-bar {
+            margin: 10px 0;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .review-count-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 8px;
+            font-size: 14px;
+        }
+        .review-count-wrap input {
+            width: 60px;
+        }
+        .fav-btn {
+            margin-left: 8px;
+            font-size: 13px;
+            padding: 5px 10px;
+        }
+        .fav-btn.faved {
+            background: #fff3cd;
+            border-color: #e6c340;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+        }
+        #topHeader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 10vh;
+            min-height: 50px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+        #topHeader h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        #mainContent {
+            margin-top: 10vh;
+            height: 90vh;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .mode-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+        .mode-bar button.active-mode {
+            font-weight: bold;
+            border: 2px solid #ffc800eb;
+            background: #ed8d2c;
+        }
+        .review-settings,
+        .dictation-settings {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin-left: 6px;
+            padding: 6px 10px;
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .word-detail-panel {
+            margin-top: 12px;
+            padding: 15px;
+            background: #f8f9fc;
+            border-left: 4px solid #4a90d9;
+            border-radius: 4px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        /* 收藏列表新样式 */
+        #errorBookList {
+            margin-top: 12px;
+        }
+        .fav-word-container {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 8px;
+        }
+        .fav-word-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+            cursor: default;
+        }
+        .fav-word-text {
+            font-weight: bold;
+            color: #2c3e50;
+            cursor: pointer;
+            min-width: 80px;
+        }
+        .fav-word-text:hover {
+            text-decoration: underline;
+        }
+        .fav-chinese-area {
+            flex: 1;
+            min-height: 24px;
+            cursor: pointer;
+        }
+        .fav-chinese-grid {
+            display: none;
+            flex-wrap: wrap;
+            gap: 2px 10px;
+        }
+        .fav-chinese-grid.show {
+            display: flex;
+        }
+        .fav-chinese-item {
+            width: calc(33.33% - 10px);
+            font-size: 0.9em;
+            color: #555;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .fav-remove-btn {
+            color: #e74c3c;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 6px;
+        }
+        .fav-word-detail {
+            display: none;
+            padding: 10px;
+            margin-left: 20px;
+            background: #f4f6f9;
+            border-left: 3px solid #4a90d9;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+        .fav-word-detail.show {
+            display: block;
+        }
+
+        /* 取词翻译悬浮窗 */
+        .word-tooltip {
+            position: fixed;
+            background: white;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            z-index: 300;
+            max-width: 280px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .word-tooltip .tooltip-word {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .word-tooltip .tooltip-means {
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .word-tooltip .detail-link {
+            color: #4a90d9;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 13px;
+        }
+        .word-clickable {
+            cursor: pointer;
+            color: inherit;
+            border-bottom: 1px dashed transparent;
+            transition: border-color 0.2s;
+        }
+        .word-clickable:hover {
+            border-bottom-color: #999;
+        }
+        .nav-history-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #dictationHint {
+            margin: 4px 0;
+            font-size: 15px;
+            color: #444;
+            background: #fef9e7;
+            padding: 4px 10px;
+            border-radius: 3px;
+        }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico "  type="image/x-icon">
+
+    <link rel="stylesheet" href="1.css">
+    <div id="progressBar" style="width: 0%; z-index: 1000">
+        <div id="progressBackground"></div>
+        <div id="progressSolid"></div>
+    </div>
+</head>
+<body>
+    <div id="topHeader">
+        <h1>MyWords 单词学习</h1>
+        <button id="settingsBtn">设置</button>
+    </div>
+
+    <div id="mainContent">
+        <span id="progressText"></span>
+        <input type="checkbox" id="enableAudio" checked style="margin: 4px 0; display: none;">
+
+        <!-- 主页视图 -->
+        <div id="homeView">
+            <h2>加载课本</h2>
+            <select id="textbookSelect">
+                <option value="">-- 请选择课本 --</option>
+            </select>
+            <button id="loadTextbookBtn">加载课本</button>
+            <div id="statusMsg"></div>
+            <hr>
+
+            <div class="mode-bar">
+                <span><strong>模式：</strong></span>
+                <button id="modeLearnBtn" class="active-mode">学习</button>
+                <button id="modeReviewBtn">复习</button>
+                <button id="modeDictationBtn">默写</button>
+
+                <span id="reviewSettingsPanel" class="review-settings" style="display: none;">
+                    <label>课本：</label>
+                    <select id="reviewTextbookSelect">
+                        <option value="__all__">全部(All)</option>
+                    </select>
+                    <label>排序：</label>
+                    <select id="reviewSortSelect">
+                        <option value="random">随机</option>
+                        <option value="oldest">最旧优先</option>
+                        <option value="mostErrors">最错优先</option>
+                    </select>
+                    <label>数量：</label>
+                    <input type="number" id="reviewCountInput" value="20" min="5" max="200">
+                    <button id="startReviewBtn">开始复习</button>
+                </span>
+
+                <span id="dictationSettingsPanel" class="dictation-settings" style="display: none;">
+                    <label>课本：</label>
+                    <select id="dictationTextbookSelect">
+                        <option value="__all__">全部(All)</option>
+                    </select>
+                    <label>排序：</label>
+                    <select id="dictationSortSelect">
+                        <option value="random">随机</option>
+                        <option value="oldest">最旧优先</option>
+                        <option value="mostErrors">最错优先</option>
+                    </select>
+                    <label>数量：</label>
+                    <input type="number" id="dictationCountInput" value="20" min="5" max="200">
+                    <button id="startDictationBtn">开始默写</button>
+                </span>
+            </div>
+            <hr>
+
+            <h2>收藏夹</h2>
+            <div id="errorBookList"></div>
+            <hr>
+        </div>
+
+        <!-- 学习/复习/默写视图 -->
+        <div id="studyView" style="display: none;">
+            <div style="margin-bottom: 12px;">
+                <button id="backHomeBtn">返回主页</button>
+                <span id="currentModeLabel" style="font-weight: bold; margin-left: 12px; font-size: 1.1rem;"></span>
+            </div>
+            <div id="progressInfo" style="font-size: 14px; color: #666; margin-bottom: 6px;"></div>
+
+            <div id="wordDisplayBox">
+                <h2 style="display: inline;">
+                    <span id="currentWordSpan"></span>
+                    <button id="playAudioBtn">听</button>
+                    <button id="favouriteBtn" class="fav-btn">收藏</button>
+                </h2>
+                <div id="wordAccent" style="color: #555; margin: 2px 0;"></div>
+                <div id="dictationHint" style="display: none;"></div>
+                <div id="wordImageContainer"></div>
+                <div id="exampleSentenceBox" style="margin: 6px 0; padding: 8px; background: #f9f9f9; border-radius: 3px;"></div>
+            </div>
+
+            <div id="optionsArea">
+                <h3 id="optionsTitle">选择正确的翻译：</h3>
+                <div id="optionsList"></div>
+                <div id="dictationArea" style="display: none;">
+                    <input type="text" id="dictationInput" placeholder="请输入英文单词..." autocomplete="off"
+                        style="width: 260px; padding: 6px; font-size: 15px;">
+                    <button id="dictationSubmitBtn" style="margin-top: 6px;">提交</button>
+                </div>
+            </div>
+
+            <div id="resultArea" style="display: none;">
+                <div class="result-title" id="resultTitle"></div>
+                <div id="wordDetailsBox"></div>
+                <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <button id="prevHistoryBtn" class="nav-history-btn" disabled>← 上一词</button>
+                    <button id="nextHistoryBtn" class="nav-history-btn" disabled>下一词 →</button>
+                    <button id="nextWordBtn" style="margin-left: auto;">继续</button>
+                </div>
+            </div>
+
+            <div id="reviewEmptyMsg" style="display: none; color: #888; font-size: 15px; margin: 20px 0;">
+                还没有学习过的单词记录, 请先在学习模式下完成一些单词再复习/默写。
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>设置</h3>
+            <label><input type="checkbox" id="settingAudio" checked>启用音频</label><br><br>
+            <label>复习默认数量：<input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
+            <label>默写默认数量：<input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
+            <button id="saveSettingsBtn">保存</button>
+            <button id="closeSettingsBtn">取消</button>
+        </div>
+    </div>
+
+    <!-- 单词详情模态框（取词翻译查看详情用） -->
+    <div id="wordDetailModal" class="modal-overlay">
+        <div class="modal-content" id="wordDetailModalContent">
+            <button id="closeWordDetailModal" style="float: right; background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+            <div id="wordDetailInner"></div>
+        </div>
+    </div>
+
+    <!-- 取词翻译悬浮窗 -->
+    <div id="wordTooltip" class="word-tooltip" style="display: none;"></div>
+
+    <script>
+        (function() {
+            const DB_NAME = 'MyWords';
+            const WORD_STORE = 'wordResources';
+            const FAVOURITE_STORE = 'Favourite';
+            const PROGRESS_STORE = 'Progress';
+            const VERSION = 1;
+
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(DB_NAME, VERSION);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (db.objectStoreNames.contains(WORD_STORE)) db.deleteObjectStore(
+                            WORD_STORE);
+                        if (db.objectStoreNames.contains(FAVOURITE_STORE)) db.deleteObjectStore(
+                            FAVOURITE_STORE);
+                        if (db.objectStoreNames.contains(PROGRESS_STORE)) db.deleteObjectStore(
+                            PROGRESS_STORE);
+                        db.createObjectStore(WORD_STORE, { keyPath: 'word' });
+                        const favStore = db.createObjectStore(FAVOURITE_STORE, { keyPath: 'word' });
+                        favStore.createIndex('isFavourite', 'isFavourite', { unique: false });
+                        db.createObjectStore(PROGRESS_STORE, { keyPath: 'key' });
+                    };
+                    req.onsuccess = (e) => resolve(e.target.result);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async function importWordsBank(estimatedSizeMB = 15) {
+                const url = 'WordsBank.json';
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                if (!progressBar) return;
+                progressBar.style.display = 'block';
+                progressBar.style.width = '0%';
+                if (progressText) progressText.textContent = '准备下载...';
+                const estimatedBytes = estimatedSizeMB * 1024 * 1024;
+                let response;
+                try {
+                    response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                } catch (e) {
+                    console.error('下载失败', e);
+                    if (progressText) progressText.textContent = '下载失败';
+                    return;
+                }
+                const reader = response.body.getReader();
+                const chunks = [];
+                let loaded = 0;
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        loaded += value.length;
+                        const pct = Math.min(80, Math.round((loaded / estimatedBytes) * 80));
+                        progressBar.style.width = pct + '%';
+                        if (progressText) progressText.textContent =
+                            `已下载 ${(loaded / 1048576).toFixed(1)} MB / 约 ${estimatedSizeMB} MB`;
+                    }
+                } catch (streamErr) {
+                    response = await fetch(url);
+                    const blob = await response.blob();
+                    const arrayBuffer = await blob.arrayBuffer();
+                    chunks.push(new Uint8Array(arrayBuffer));
+                    loaded = arrayBuffer.byteLength;
+                    progressBar.style.width = '80%';
+                    if (progressText) progressText.textContent = '下载完成, 正在导入...';
+                }
+                if (chunks.length === 0) {
+                    if (progressText) progressText.textContent = '下载内容为空';
+                    return;
+                }
+                const allBytes = new Uint8Array(loaded);
+                let pos = 0;
+                for (const chunk of chunks) {
+                    allBytes.set(chunk, pos);
+                    pos += chunk.length;
+                }
+                let data;
+                try {
+                    data = JSON.parse(new TextDecoder().decode(allBytes));
+                } catch (e) {
+                    console.error('JSON 解析失败', e);
+                    if (progressText) progressText.textContent = '数据解析失败';
+                    return;
+                }
+                const wordList = data.wordResources;
+                if (!wordList || !Array.isArray(wordList)) {
+                    console.error('数据格式错误');
+                    return;
+                }
+                progressBar.style.width = '80%';
+                if (progressText) progressText.textContent = '导入文本词库中...';
+                await importToDB(wordList);
+                progressBar.style.width = '100%';
+                if (progressText) progressText.textContent = '文本词库下载完成';
+                setTimeout(() => { progressBar.style.display = 'none'; }, 600);
+                async function importToDB(words) {
+                    const db = await openDB();
+                    const tx = db.transaction('wordResources', 'readwrite');
+                    const store = tx.objectStore('wordResources');
+                    for (let i = 0; i < words.length; i++) {
+                        await new Promise((res, rej) => {
+                            const req = store.put(words[i]);
+                            req.onsuccess = res;
+                            req.onerror = rej;
+                        });
+                        const importPct = 80 + Math.round((i / words.length) * 20);
+                        progressBar.style.width = importPct + '%';
+                        if (progressText) progressText.textContent = `正在导入文本词库 ${i+1}/${words.length}`;
+                        localStorage.ON_MyWords_Bank = "1";
+                    }
+                    await new Promise(res => { tx.oncomplete = res; });
+                }
+            }
+
+            function getWordResource(db, word) {
+                return new Promise((res, rej) => {
+                    const tx = db.transaction(WORD_STORE, 'readonly');
+                    const r = tx.objectStore(WORD_STORE).get(word);
+                    r.onsuccess = () => res(r.result);
+                    r.onerror = rej;
+                });
+            }
+
+            function getFavourite(db, word) {
+                return new Promise((res, rej) => {
+                    const tx = db.transaction(FAVOURITE_STORE, 'readonly');
+                    const r = tx.objectStore(FAVOURITE_STORE).get(word);
+                    r.onsuccess = () => res(r.result);
+                    r.onerror = rej;
+                });
+            }
+
+            function saveFavourite(db, data) {
+                return new Promise((res, rej) => {
+                    const tx = db.transaction(FAVOURITE_STORE, 'readwrite');
+                    const r = tx.objectStore(FAVOURITE_STORE).put(data);
+                    r.onsuccess = res;
+                    r.onerror = rej;
+                });
+            }
+
+            function getAllFavourites(db) {
+                return new Promise((res, rej) => {
+                    const tx = db.transaction(FAVOURITE_STORE, 'readonly');
+                    const r = tx.objectStore(FAVOURITE_STORE).getAll();
+                    r.onsuccess = () => res(r.result);
+                    r.onerror = rej;
+                });
+            }
+
+            function getProgress(db, key) {
+                return new Promise((res, rej) => {
+                    const tx = db.transaction(PROGRESS_STORE, 'readonly');
+                    const r = tx.objectStore(PROGRESS_STORE).get(key);
+                    r.onsuccess = () => res(r.result?.index || 0);
+                    r.onerror = rej;
+                });
+            }
+
+            function saveProgress(db, key, index) {
+                return new Promise((res, rej) => {
+                    const tx = db.transaction(PROGRESS_STORE, 'readwrite');
+                    const r = tx.objectStore(PROGRESS_STORE).put({ key, index });
+                    r.onsuccess = res;
+                    r.onerror = rej;
+                });
+            }
+
+            const textbooks = ['SiJiGaoPin', 'SiJi', 'LiuXiaoYanSiJi', 'LiuJi'];
+
+            function initTextbookDropdowns() {
+                const mainSelect = document.getElementById('textbookSelect');
+                const reviewSelect = document.getElementById('reviewTextbookSelect');
+                const dictationSelect = document.getElementById('dictationTextbookSelect');
+                [mainSelect, reviewSelect, dictationSelect].forEach(select => {
+                    if (!select) return;
+                    while (select.options.length > (select === mainSelect ? 1 : 1)) select.remove(select ===
+                        mainSelect ? 1 : 1);
+                    textbooks.forEach(book => {
+                        const option = document.createElement('option');
+                        option.value = book;
+                        option.textContent = book;
+                        select.appendChild(option);
+                    });
+                });
+            }
+
+            let currentWordList = [],
+                currentIndex = 0,
+                currentWordData = null,
+                audioEnabled = true;
+            let currentIsFavourite = false,
+                currentTextbookName = '',
+                currentMode = 'learn';
+            let wordZipCache = {};
+            const MAX_ZIP_CACHE = 5;
+            let dictationSubmitted = false;
+            let reviewTextbookFilter = '__all__',
+                reviewSortMode = 'random';
+            let dictationTextbookFilter = '__all__',
+                dictationSortMode = 'random';
+            let currentView = 'home';
+
+            // 历史回顾相关
+            let historyList = []; // { word, isCorrect, userInput, wordData }
+            let historyViewIndex = -1;
+
+            function getFirstExample(sentences) { return sentences?.[0] || null; }
+
+            function getChineseMeanings(wordData) {
+                return wordData?.cnMean?.length ? [{ type: wordData.cnMean[0].meanType || '', mean: wordData.cnMean[0]
+                        .mean || ''
+                    }] : [];
+            }
+
+            function formatMergedMeaning(meanObj) { return (meanObj.type ? meanObj.type + ' ' : '') + meanObj.mean; }
+
+            function generateOptions(correctWord, correctMean, similars) {
+                const options = [{ text: formatMergedMeaning(correctMean), isCorrect: true }];
+                if (similars?.length) {
+                    const shuffled = [...similars].sort(() => Math.random() - 0.5).slice(0, 3);
+                    shuffled.forEach(s => options.push({ text: (s.meanType || '') + ' ' + s.mean, isCorrect: false }));
+                }
+                while (options.length < 4) options.push({ text: '未知选项', isCorrect: false });
+                return options.sort(() => Math.random() - 0.5);
+            }
+
+            async function loadZipForWord(word) {
+                if (wordZipCache[word]) return wordZipCache[word];
+                const resp = await fetch(`Words/${word}.zip`);
+                if (!resp.ok) return null;
+                const zipData = await resp.arrayBuffer();
+                if (Object.keys(wordZipCache).length >= MAX_ZIP_CACHE) delete wordZipCache[Object.keys(wordZipCache)[0]];
+                wordZipCache[word] = await JSZip.loadAsync(zipData);
+                return wordZipCache[word];
+            }
+
+            async function extractResourceFromWordZip(word, path) {
+                if (!path) return null;
+                const zip = await loadZipForWord(word);
+                if (!zip) return null;
+                const file = zip.file(path);
+                if (!file) return null;
+                const blob = await file.async('blob');
+                return blob.type ? blob : new Blob([blob], { type: 'audio/mpeg' });
+            }
+
+            async function loadImageFromZip(word, path) {
+                if (!path) return null;
+                const zip = await loadZipForWord(word);
+                if (!zip) return null;
+                const file = zip.file(path);
+                if (!file) return null;
+                const blob = await file.async('blob');
+                return blob.type ? blob : new Blob([blob], { type: 'image/jpeg' });
+            }
+
+            function useTTS(word) {
+                if ('speechSynthesis' in window) {
+                    const u = new SpeechSynthesisUtterance(word);
+                    u.lang = 'en-US';
+                    speechSynthesis.speak(u);
+                }
+            }
+
+            async function playWordAudio(word) {
+                if (!audioEnabled) return;
+                const db = await openDB();
+                const wd = await getWordResource(db, word);
+                if (wd?.audioUs) {
+                    const blob = await extractResourceFromWordZip(word, wd.audioUs);
+                    if (blob) {
+                        const a = new Audio(URL.createObjectURL(blob));
+                        a.play().catch(() => useTTS(word));
+                        return;
+                    }
+                }
+                useTTS(word);
+            }
+
+            function playSentenceAudio(sentence) {
+                if (!audioEnabled || !currentWordList[currentIndex]) return;
+                const word = currentWordList[currentIndex];
+                if (sentence?.audio) {
+                    extractResourceFromWordZip(word, sentence.audio).then(blob => {
+                        if (blob) {
+                            const a = new Audio(URL.createObjectURL(blob));
+                            a.play().catch(() => useTTS(sentence.sentenceEn));
+                        }
+                    });
+                } else if (sentence?.sentenceEn) useTTS(sentence.sentenceEn);
+            }
+
+            function playResultSound(isCorrect) {
+                try {
+                    const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    if (isCorrect) {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                        osc.start(audioCtx.currentTime);
+                        osc.stop(audioCtx.currentTime + 0.15);
+                    } else {
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                        osc.start(audioCtx.currentTime);
+                        osc.stop(audioCtx.currentTime + 0.2);
+                    }
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    document.getElementById('playAudioBtn').click();
+                } catch (e) {}
+            }
+
+            // 将文本中的英文单词包裹为可点击划词翻译的 span
+            function wrapWordsInString(str) {
+                if (!str || typeof str !== 'string') return str;
+                return str.replace(/\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g,
+                    '<span class="word-clickable" data-word="$1">$1</span>');
+            }
+
+            function buildWordDetailsHTML(wordData) {
+                if (!wordData) return '<p>无详细信息</p>';
+                let html = '<div>';
+                html += `<h2>${wrapWordsInString(wordData.word)}</h2>`;
+                if (wordData.cnMean?.length) {
+                    html += '<h3>中文释义：</h3><ul>';
+                    const g = {};
+                    wordData.cnMean.forEach(m => { const t = m.meanType || ''; if (!g[t]) g[t] = []; g[t].push(m); });
+                    for (const [t, means] of Object.entries(g)) {
+                        html +=
+                            `<li><strong>${t}</strong> ${means.map(m => m.mean + (m.percent ? ` <strong>${m.percent}</strong>` : '')).join('; ')}</li>`;
+                    }
+                    html += '</ul>';
+                }
+                if (wordData.mnemonic?.content) {
+                    html += '<h3>记忆：</h3><ul>';
+                    html += `<li>${wordData.mnemonic.content}</li>`;
+                    html += '</ul>';
+                }
+
+                if (wordData.enMean?.length) {
+                    html += '<h3>英文释义：</h3><ul>';
+                    wordData.enMean.forEach(m => html +=
+                        `<li><strong>${m.meanType||''}</strong> ${m.mean||''}</li>`);
+                    html += '</ul>';
+                }
+                if (wordData.phrases?.length) {
+                    html += '<h3>短语：</h3><ul>';
+                    wordData.phrases.forEach(p => html +=
+                        `<li><strong>${wrapWordsInString(p.phrase)}:</strong> ${p.mean||''}</li>`);
+                    html += '</ul>';
+                }
+                if (wordData.variant?.length) {
+                    html += '<h3>变形：</h3><ul>';
+                    wordData.variant.forEach(v => html +=
+                        `<li><strong>${v.type}:</strong> ${wrapWordsInString(v.variant||'')}</li>`);
+                    html += '</ul>';
+                }
+                if (wordData.similars?.length) {
+                    html += '<h3>易混词：</h3><ul>';
+                    wordData.similars.forEach(s => html +=
+                        `<li><strong>${wrapWordsInString(s.word)}:</strong> ${s.meanType||''} ${s.mean||''}</li>`);
+                    html += '</ul>';
+                }
+                if (wordData.derivations?.length) {
+                    html += '<h3>派生词: </h3><ul>';
+                    wordData.derivations.forEach(d => html +=
+                        `<li><strong>${wrapWordsInString(d.word)}:</strong> ${d.mean||''}</li>`);
+                    html += '</ul>';
+                }
+                if (wordData.sentences?.length) {
+                    html += '<h3>例句: </h3><ul>';
+                    wordData.sentences.forEach(s => html +=
+                        `<li>${wrapWordsInString(s.sentenceEn)}<br>翻译: ${s.translate||''}</li>`);
+                    html += '</ul>';
+                }
+                html += '</div>';
+                return html;
+            }
+
+            async function loadTextbookWordsFromFile(name) {
+                const resp = await fetch(`Books/${name}.txt`);
+                if (!resp.ok) throw new Error('加载失败');
+                return (await resp.text()).split(',').map(w => w.trim()).filter(w => w);
+            }
+
+            // 打乱数组
+            function shuffleArray(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            async function buildReviewList(count, filter, sort) {
+                const db = await openDB();
+                let records = (await getAllFavourites(db)).filter(r => r.word && r.answerCount > 0);
+                if (filter !== '__all__') {
+                    const words = await loadTextbookWordsFromFile(filter);
+                    const set = new Set(words.map(w => w.toLowerCase()));
+                    records = records.filter(r => set.has(r.word.toLowerCase()));
+                }
+                if (!records.length) return [];
+                // 忽略排序，强制随机打乱
+                records = shuffleArray(records);
+                return records.slice(0, count).map(r => r.word);
+            }
+
+            async function buildDictationList(count, filter, sort) {
+                const db = await openDB();
+                let records = (await getAllFavourites(db)).filter(r => r.word && r.answerCount > 0);
+                if (filter !== '__all__') {
+                    const words = await loadTextbookWordsFromFile(filter);
+                    const set = new Set(words.map(w => w.toLowerCase()));
+                    records = records.filter(r => set.has(r.word.toLowerCase()));
+                }
+                if (!records.length) return [];
+                // 忽略排序，强制随机打乱
+                records = shuffleArray(records);
+                return records.slice(0, count).map(r => r.word);
+            }
+
+            function getProgressKey() {
+                if (currentMode === 'learn') return `learn_${currentTextbookName}`;
+                if (currentMode === 'review') return reviewTextbookFilter === '__all__' ? 'review_all' :
+                    `review_${reviewTextbookFilter}`;
+                return dictationTextbookFilter === '__all__' ? 'dictation_all' : `dictation_${dictationTextbookFilter}`;
+            }
+
+            async function displayCurrentWord() {
+                dictationSubmitted = false;
+                if (currentIndex >= currentWordList.length) {
+                    // 完成界面，提供重新开始按钮
+                    document.getElementById('wordDisplayBox').innerHTML = `
+                        <h2>${currentMode==='learn'?'学习':currentMode==='review'?'复习':'默写'}完成!</h2>
+                        <button id="restartBtn" style="margin-top:10px;">重新开始</button>
+                    `;
+                    document.getElementById('optionsArea').style.display = 'none';
+                    document.getElementById('resultArea').style.display = 'none';
+                    document.getElementById('progressInfo').textContent = '';
+                    document.getElementById('dictationHint').style.display = 'none';
+                    document.getElementById('restartBtn').addEventListener('click', () => startMode(currentMode));
+                    return;
+                }
+                const word = currentWordList[currentIndex];
+                const db = await openDB();
+                currentWordData = await getWordResource(db, word);
+                if (!currentWordData) {
+                    document.getElementById('currentWordSpan').textContent = word + ' (无数据)';
+                    document.getElementById('optionsArea').style.display = 'none';
+                    document.getElementById('resultArea').style.display = 'none';
+                    document.getElementById('dictationHint').style.display = 'none';
+                    return;
+                }
+                const fav = await getFavourite(db, word);
+                currentIsFavourite = fav ? fav.isFavourite : false;
+                updateFavouriteButton();
+
+                // 默写模式：显示中文提示和答案长度，隐藏单词
+                if (currentMode === 'dictation') {
+                    document.getElementById('currentWordSpan').textContent = '???';
+                    const firstMean = currentWordData.cnMean?.[0]?.mean || '无';
+                    const wordLen = word.length;
+                    document.getElementById('dictationHint').textContent = `${firstMean} (${wordLen})`;
+                    document.getElementById('dictationHint').style.display = 'block';
+                    document.getElementById('wordAccent').textContent = '';
+                    document.getElementById('wordAccent').style.display = 'none';
+                } else {
+                    document.getElementById('currentWordSpan').textContent = word;
+                    document.getElementById('wordAccent').textContent = currentWordData.accentUk ? `UK: ${currentWordData.accentUk}` : currentWordData.accentUs ? `US: ${currentWordData.accentUs}` : '';
+                    document.getElementById('wordAccent').style.display = '';
+                    document.getElementById('dictationHint').style.display = 'none';
+                }
+
+                const imgContainer = document.getElementById('wordImageContainer');
+                imgContainer.innerHTML = '';
+                if (currentWordData.imgContent) {
+                    const blob = await loadImageFromZip(word, currentWordData.imgContent);
+                    if (blob) imgContainer.innerHTML =
+                        `<img class="word-img" src="${URL.createObjectURL(blob)}" style="max-width:200px;">`;
+                }
+                const example = getFirstExample(currentWordData.sentences);
+                const exampleBox = document.getElementById('exampleSentenceBox');
+
+                // 复习模式不展示例句和翻译
+                if (currentMode === 'review') {
+                    exampleBox.innerHTML = '';
+                } else if (example) {
+                    let sent = example.sentenceEn;
+                    if (currentMode === 'dictation') {
+                        sent = sent.replace(new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '____');
+                        exampleBox.innerHTML =
+                            `<p><strong><button id="playSentenceAudioBtn">例句: </button></strong>${sent}</p>`;
+                    } else {
+                        const escapedSent = sent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const processed = escapedSent.replace(/\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g,
+                            '<span class="word-clickable" data-word="$1">$1</span>');
+                        exampleBox.innerHTML =
+                            `<p><strong><button id="playSentenceAudioBtn">例句: </button></strong><span class="sentence-text">${processed}</span></p>`;
+                    }
+                    if (currentMode === 'learn') {
+                        // 学习模式不显示翻译
+                    } else if (currentMode === 'dictation') {
+                        // 默写模式可以显示翻译，但复习模式已经隐藏，这里针对dictation显示翻译
+                        exampleBox.innerHTML += `<p><strong>翻译: </strong>${example.translate||''}</p>`;
+                    }
+                    document.getElementById('playSentenceAudioBtn')?.addEventListener('click', () =>
+                        playSentenceAudio(example));
+                    if (audioEnabled && example.audio && currentMode !== 'dictation' && currentMode !== 'review') setTimeout(() =>
+                        playSentenceAudio(example), 500);
+                } else {
+                    exampleBox.innerHTML = '<p>暂无例句</p>';
+                }
+
+                document.getElementById('resultArea').style.display = 'none';
+                if (currentMode === 'dictation') {
+                    document.getElementById('optionsTitle').textContent = '请输入英文单词: ';
+                    document.getElementById('dictationArea').style.display = 'block';
+                    document.getElementById('optionsList').innerHTML = '';
+                    document.getElementById('dictationInput').value = '';
+                    setTimeout(() => {
+                        const inp = document.getElementById('dictationInput');
+                        if (inp) inp.focus();
+                    }, 50);
+                } else {
+                    document.getElementById('optionsTitle').textContent = '选择正确的翻译: ';
+                    document.getElementById('dictationArea').style.display = 'none';
+                    const means = getChineseMeanings(currentWordData);
+                    if (means.length) {
+                        const opts = generateOptions(word, means[0], currentWordData.similars);
+                        document.getElementById('optionsList').innerHTML = opts.map((o, i) =>
+                            `<button class="option-btn" data-correct="${o.isCorrect}" data-index="${i}">${o.text}</button>`
+                        ).join('');
+                        document.querySelectorAll('.option-btn').forEach(b => b.addEventListener('click',
+                            handleOptionClick));
+                    }
+                }
+                document.getElementById('optionsArea').style.display = 'block';
+                document.getElementById('progressInfo').textContent =
+                    `${currentMode==='learn'?'学习':currentMode==='review'?'复习':'默写'}进度: ${currentIndex+1}/${currentWordList.length}`;
+            }
+
+            async function handleOptionClick(e) {
+                const isCorrect = e.target.dataset.correct === 'true';
+                const word = currentWordList[currentIndex];
+                const db = await openDB();
+                let fav = await getFavourite(db, word) || { word, isFavourite: false, answerCount: 0, errorCount: 0,
+                    dictationCount: 0, dictationErrorCount: 0, lastLearnTime: null, lastReviewTime: null,
+                    lastDictationTime: null };
+                fav.answerCount = (fav.answerCount || 0) + 1;
+                if (!isCorrect) fav.errorCount = (fav.errorCount || 0) + 1;
+                const now = new Date().toISOString();
+                if (currentMode === 'learn') fav.lastLearnTime = now;
+                else if (currentMode === 'review') fav.lastReviewTime = now;
+                await saveFavourite(db, fav);
+                await saveProgress(db, getProgressKey(), currentIndex);
+                document.querySelectorAll('.option-btn').forEach(b => {
+                    b.disabled = true;
+                    if (b.dataset.correct === 'true') b.classList.add('correct-pick');
+                    if (b === e.target && !isCorrect) b.classList.add('wrong-pick');
+                });
+                historyList.push({ word, isCorrect, userInput: null, wordData: currentWordData });
+                historyViewIndex = historyList.length - 1;
+                showHistoryResult(historyViewIndex);
+                dictationSubmitted = true;
+            }
+
+            async function handleDictationSubmit() {
+                if (dictationSubmitted) return;
+                const input = document.getElementById('dictationInput').value.trim();
+                if (!input) return;
+                const word = currentWordList[currentIndex];
+                const isCorrect = input.toLowerCase() === word.toLowerCase();
+                const db = await openDB();
+                let fav = await getFavourite(db, word) || { word, isFavourite: false, answerCount: 0, errorCount: 0,
+                    dictationCount: 0, dictationErrorCount: 0, lastLearnTime: null, lastReviewTime: null,
+                    lastDictationTime: null };
+                fav.dictationCount = (fav.dictationCount || 0) + 1;
+                if (!isCorrect) fav.dictationErrorCount = (fav.dictationErrorCount || 0) + 1;
+                fav.lastDictationTime = new Date().toISOString();
+                await saveFavourite(db, fav);
+                await saveProgress(db, getProgressKey(), currentIndex);
+                dictationSubmitted = true;
+                historyList.push({ word, isCorrect, userInput: input, wordData: currentWordData });
+                historyViewIndex = historyList.length - 1;
+                showHistoryResult(historyViewIndex);
+            }
+
+            function showHistoryResult(index) {
+                if (index < 0 || index >= historyList.length) return;
+                const item = historyList[index];
+                const isCorrect = item.isCorrect;
+                document.getElementById('resultTitle').textContent = isCorrect ? '正确! ' : '错误! ';
+                document.getElementById('resultTitle').className = 'result-title ' + (isCorrect ? 'result-correct' :
+                    'result-wrong');
+                let detailsHTML = '';
+                if (currentMode === 'dictation' && item.userInput !== null) {
+                    detailsHTML +=
+                        `<p><strong>你的输入: </strong>${item.userInput} ${isCorrect?'✓':'✗'}</p><p><strong>正确答案: </strong>${item.word}</p>`;
+                }
+                detailsHTML += buildWordDetailsHTML(item.wordData);
+                document.getElementById('wordDetailsBox').innerHTML = detailsHTML;
+                document.getElementById('resultArea').style.display = 'block';
+                document.getElementById('optionsArea').style.display = 'none';
+                updateHistoryNavButtons();
+                playResultSound(isCorrect);
+            }
+
+            function updateHistoryNavButtons() {
+                const prevBtn = document.getElementById('prevHistoryBtn');
+                const nextBtn = document.getElementById('nextHistoryBtn');
+                prevBtn.disabled = historyViewIndex <= 0;
+                nextBtn.disabled = historyViewIndex >= historyList.length - 1;
+            }
+
+            async function goNextWord() {
+                if (currentMode === 'dictation' && !dictationSubmitted) {
+                    const inp = document.getElementById('dictationInput').value.trim();
+                    if (inp) {
+                        await handleDictationSubmit();
+                        return;
+                    }
+                }
+                currentIndex++;
+                await saveProgress(await openDB(), getProgressKey(), currentIndex);
+                await displayCurrentWord();
+            }
+
+            function switchView(view) {
+                currentView = view;
+                document.getElementById('homeView').style.display = view === 'home' ? 'block' : 'none';
+                document.getElementById('studyView').style.display = view === 'study' ? 'block' : 'none';
+                if (view === 'home') {
+                    renderErrorBook();
+                    updateModeButtons();
+                }
+                if (view === 'study') {
+                    document.getElementById('currentModeLabel').textContent = currentMode === 'learn' ? '学习模式' :
+                        currentMode === 'review' ? '复习模式' : '默写模式';
+                }
+            }
+
+            function updateModeButtons() {
+                document.getElementById('modeLearnBtn').classList.toggle('active-mode', currentMode === 'learn');
+                document.getElementById('modeReviewBtn').classList.toggle('active-mode', currentMode === 'review');
+                document.getElementById('modeDictationBtn').classList.toggle('active-mode', currentMode === 'dictation');
+                document.getElementById('reviewSettingsPanel').style.display = currentMode === 'review' ? '' : 'none';
+                document.getElementById('dictationSettingsPanel').style.display = currentMode === 'dictation' ? '' :
+                'none';
+            }
+
+            async function startMode(mode) {
+                const db = await openDB();
+                // 重置所有进度和历史
+                historyList = [];
+                historyViewIndex = -1;
+                dictationSubmitted = false;
+                currentWordList = [];
+                currentIndex = 0;
+                currentWordData = null;
+                if (mode === 'learn') {
+                    if (!currentTextbookName) {
+                        document.getElementById('statusMsg').innerHTML =
+                            '<span style="color:orange;">请先加载课本</span>';
+                        return;
+                    }
+                    currentWordList = await loadTextbookWordsFromFile(currentTextbookName);
+                    const idx = await getProgress(db, `learn_${currentTextbookName}`);
+                    currentIndex = Math.min(idx, currentWordList.length - 1);
+                } else if (mode === 'review') {
+                    const count = parseInt(document.getElementById('reviewCountInput').value) || 20;
+                    reviewTextbookFilter = document.getElementById('reviewTextbookSelect').value;
+                    reviewSortMode = document.getElementById('reviewSortSelect').value;
+                    currentWordList = await buildReviewList(count, reviewTextbookFilter, reviewSortMode);
+                    if (!currentWordList.length) {
+                        document.getElementById('reviewEmptyMsg').style.display = 'block';
+                        switchView('study');
+                        return;
+                    }
+                    currentIndex = 0;
+                    await saveProgress(db, getProgressKey(), 0);
+                } else if (mode === 'dictation') {
+                    const count = parseInt(document.getElementById('dictationCountInput').value) || 20;
+                    dictationTextbookFilter = document.getElementById('dictationTextbookSelect').value;
+                    dictationSortMode = document.getElementById('dictationSortSelect').value;
+                    currentWordList = await buildDictationList(count, dictationTextbookFilter, dictationSortMode);
+                    if (!currentWordList.length) {
+                        document.getElementById('reviewEmptyMsg').style.display = 'block';
+                        switchView('study');
+                        return;
+                    }
+                    currentIndex = 0;
+                    await saveProgress(db, getProgressKey(), 0);
+                }
+                currentMode = mode;
+                document.getElementById('reviewEmptyMsg').style.display = 'none';
+                switchView('study');
+                await displayCurrentWord();
+            }
+
+            async function renderErrorBook() {
+                const db = await openDB();
+                const all = await getAllFavourites(db);
+                const favWords = all.filter(r => r.isFavourite && r.word);
+                const listEl = document.getElementById('errorBookList');
+                if (!favWords.length) {
+                    listEl.innerHTML = '<p style="color:#888;">暂无收藏单词</p>';
+                    return;
+                }
+                const wordDataMap = {};
+                await Promise.all(favWords.map(async f => {
+                    const wd = await getWordResource(db, f.word);
+                    if (wd) wordDataMap[f.word] = wd;
+                }));
+                listEl.innerHTML = favWords.map(f => {
+                    const wd = wordDataMap[f.word];
+                    const meanings = wd?.cnMean || [];
+                    const meaningItems = meanings.map(m =>
+                        `<span class="fav-chinese-item" title="${m.mean}">${m.mean}</span>`).join('');
+                    return `
+                        <div class="fav-word-container" data-word="${f.word}">
+                            <div class="fav-word-row">
+                                <span class="fav-word-text">${f.word}</span>
+                                <div class="fav-chinese-area">
+                                    <div class="fav-chinese-grid">${meaningItems || '<span style="color:#aaa;">无释义</span>'}</div>
+                                </div>
+                                <button class="fav-remove-btn" data-word="${f.word}">✕</button>
+                            </div>
+                            <div class="fav-word-detail"></div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.querySelectorAll('.fav-word-container').forEach(container => {
+                    const word = container.dataset.word;
+                    const wordText = container.querySelector('.fav-word-text');
+                    const chineseArea = container.querySelector('.fav-chinese-area');
+                    const chineseGrid = container.querySelector('.fav-chinese-grid');
+                    const removeBtn = container.querySelector('.fav-remove-btn');
+                    const detailDiv = container.querySelector('.fav-word-detail');
+
+                    wordText.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (detailDiv.classList.contains('show')) {
+                            detailDiv.classList.remove('show');
+                        } else {
+                            if (!detailDiv.innerHTML) {
+                                const wd = wordDataMap[word] || await getWordResource(await openDB(),
+                                    word);
+                                detailDiv.innerHTML = wd ? buildWordDetailsHTML(wd) : '<p>无详情</p>';
+                            }
+                            detailDiv.classList.add('show');
+                        }
+                    });
+
+                    chineseArea.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        chineseGrid.classList.toggle('show');
+                    });
+
+                    removeBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (confirm(`确定要取消收藏 "${word}" 吗？`)) {
+                            const db = await openDB();
+                            let fav = await getFavourite(db, word);
+                            if (fav) { fav.isFavourite = false;
+                                await saveFavourite(db, fav); }
+                            renderErrorBook();
+                        }
+                    });
+                });
+            }
+
+            function updateFavouriteButton() {
+                const btn = document.getElementById('favouriteBtn');
+                if (currentIsFavourite) {
+                    btn.textContent = '已收藏';
+                    btn.className = 'fav-btn faved';
+                } else {
+                    btn.textContent = '收藏';
+                    btn.className = 'fav-btn';
+                }
+            }
+            async function toggleFavourite() {
+                const word = currentWordList[currentIndex];
+                if (!word) return;
+                const db = await openDB();
+                currentIsFavourite = !currentIsFavourite;
+                updateFavouriteButton();
+                let favData = await getFavourite(db, word);
+                if (!favData) {
+                    favData = {
+                        word,
+                        isFavourite: currentIsFavourite,
+                        answerCount: 0,
+                        errorCount: 0,
+                        dictationCount: 0,
+                        dictationErrorCount: 0,
+                        lastLearnTime: null,
+                        lastReviewTime: null,
+                        lastDictationTime: null
+                    };
+                } else {
+                    favData.isFavourite = currentIsFavourite;
+                }
+                await saveFavourite(db, favData);
+            }
+
+            function loadSettings() {
+                audioEnabled = localStorage.getItem('mywords_audio') !== 'false';
+                document.getElementById('enableAudio').checked = audioEnabled;
+                document.getElementById('settingAudio').checked = audioEnabled;
+                const revCount = localStorage.getItem('mywords_reviewCount') || 20;
+                document.getElementById('settingReviewCount').value = revCount;
+                document.getElementById('reviewCountInput').value = revCount;
+                const dictCount = localStorage.getItem('mywords_dictationCount') || 20;
+                document.getElementById('settingDictationCount').value = dictCount;
+                document.getElementById('dictationCountInput').value = dictCount;
+            }
+
+            function saveSettings() {
+                audioEnabled = document.getElementById('settingAudio').checked;
+                localStorage.setItem('mywords_audio', audioEnabled);
+                document.getElementById('enableAudio').checked = audioEnabled;
+                const revVal = document.getElementById('settingReviewCount').value;
+                localStorage.setItem('mywords_reviewCount', revVal);
+                document.getElementById('reviewCountInput').value = revVal;
+                const dictVal = document.getElementById('settingDictationCount').value;
+                localStorage.setItem('mywords_dictationCount', dictVal);
+                document.getElementById('dictationCountInput').value = dictVal;
+                document.getElementById('settingsModal').style.display = 'none';
+            }
+
+            // 取词翻译逻辑
+            const tooltip = document.getElementById('wordTooltip');
+            let currentTooltipWord = null;
+
+            function hideTooltip() {
+                tooltip.style.display = 'none';
+                currentTooltipWord = null;
+            }
+
+            async function showTooltip(word, x, y) {
+                if (!word) return;
+                const db = await openDB();
+                const wd = await getWordResource(db, word);
+                if (!wd) {
+                    tooltip.innerHTML =
+                        `<div class="tooltip-word">${word}</div><div class="tooltip-means">未找到释义</div>`;
+                } else {
+                    const means = wd.cnMean?.slice(0, 3).map(m => m.mean).join('; ') || '无释义';
+                    tooltip.innerHTML = `
+                        <div class="tooltip-word">${wd.word}</div>
+                        <div class="tooltip-means">${means}</div>
+                        <span class="detail-link" data-word="${wd.word}">查看详情</span>
+                    `;
+                    tooltip.querySelector('.detail-link')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        hideTooltip();
+                        showWordDetailModal(wd);
+                    });
+                }
+                tooltip.style.display = 'block';
+                const rect = tooltip.getBoundingClientRect();
+                let left = x + 10;
+                let top = y + 10;
+                if (left + 280 > window.innerWidth) left = x - 290;
+                if (top + 150 > window.innerHeight) top = y - 160;
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+                currentTooltipWord = word;
+            }
+
+            function showWordDetailModal(wordData) {
+                const modal = document.getElementById('wordDetailModal');
+                document.getElementById('wordDetailInner').innerHTML = buildWordDetailsHTML(wordData);
+                modal.style.display = 'flex';
+            }
+
+            // 全局点击处理：划词翻译 + 隐藏悬浮窗
+            document.addEventListener('click', async (e) => {
+                const wordSpan = e.target.closest('.word-clickable');
+                if (wordSpan) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const word = wordSpan.dataset.word;
+                    if (word) {
+                        await showTooltip(word, e.clientX, e.clientY);
+                    }
+                    return;
+                }
+                // 点击悬浮窗内部或详情链接不隐藏
+                if (e.target.closest('#wordTooltip') || e.target.closest('.detail-link')) {
+                    return;
+                }
+                hideTooltip();
+            });
+
+            // 快捷键
+            document.addEventListener('keydown', (e) => {
+                if (currentView !== 'study') return;
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+                const optionsArea = document.getElementById('optionsArea');
+                const resultArea = document.getElementById('resultArea');
+                if (optionsArea.style.display !== 'none' && currentMode !== 'dictation') {
+                    const key = e.key.toLowerCase();
+                    if (['z', 'x', 'c', 'v'].includes(key)) {
+                        e.preventDefault();
+                        const idx = { z: 0, x: 1, c: 2, v: 3 } [key];
+                        const btns = document.querySelectorAll('.option-btn');
+                        if (btns[idx] && !btns[idx].disabled) btns[idx].click();
+                    }
+                    if (key === 'f') {
+                        e.preventDefault();
+                        document.getElementById('favouriteBtn').click();
+                    }
+                } else if (resultArea.style.display !== 'none') {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('nextWordBtn').click();
+                    }
+                }
+            });
+
+            // 事件绑定
+            document.getElementById('loadTextbookBtn').addEventListener('click', async () => {
+                const book = document.getElementById('textbookSelect').value;
+                if (!book) {
+                    document.getElementById('statusMsg').innerHTML =
+                        '<span style="color:orange;">请选择课本</span>';
+                    return;
+                }
+                currentTextbookName = book;
+                document.getElementById('statusMsg').textContent = '正在加载...';
+                try {
+                    await loadTextbookWordsFromFile(book);
+                    document.getElementById('statusMsg').innerHTML =
+                        `<span style="color:green;">已加载 "${book}"</span>`;
+                    await startMode('learn');
+                } catch (err) {
+                    document.getElementById('statusMsg').innerHTML = '<span style="color:red;">加载失败</span>';
+                }
+            });
+
+            document.getElementById('modeLearnBtn').addEventListener('click', () => {
+                if (currentTextbookName) startMode('learn');
+                else alert('请先加载课本');
+            });
+
+            document.getElementById('modeReviewBtn').addEventListener('click', () => {
+                currentMode = 'review';
+                updateModeButtons();
+            });
+            document.getElementById('modeDictationBtn').addEventListener('click', () => {
+                currentMode = 'dictation';
+                updateModeButtons();
+            });
+
+            document.getElementById('startReviewBtn').addEventListener('click', () => startMode('review'));
+            document.getElementById('startDictationBtn').addEventListener('click', () => startMode('dictation'));
+            document.getElementById('backHomeBtn').addEventListener('click', () => switchView('home'));
+            document.getElementById('nextWordBtn').addEventListener('click', goNextWord);
+            document.getElementById('playAudioBtn').addEventListener('click', () => {
+                if (currentWordList[currentIndex]) playWordAudio(currentWordList[currentIndex]);
+            });
+            document.getElementById('enableAudio').addEventListener('change', e => audioEnabled = e.target.checked);
+            document.getElementById('dictationSubmitBtn').addEventListener('click', handleDictationSubmit);
+            document.getElementById('dictationInput').addEventListener('keydown', e => { if (e.key === 'Enter')
+                    handleDictationSubmit(); });
+            document.getElementById('settingsBtn').addEventListener('click', () => document.getElementById(
+                'settingsModal').style.display = 'flex');
+            document.getElementById('closeSettingsBtn').addEventListener('click', () => document.getElementById(
+                'settingsModal').style.display = 'none');
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+            document.getElementById('favouriteBtn').addEventListener('click', toggleFavourite);
+
+            // 历史导航按钮
+            document.getElementById('prevHistoryBtn').addEventListener('click', () => {
+                if (historyViewIndex > 0) {
+                    historyViewIndex--;
+                    showHistoryResult(historyViewIndex);
+                }
+            });
+            document.getElementById('nextHistoryBtn').addEventListener('click', () => {
+                if (historyViewIndex < historyList.length - 1) {
+                    historyViewIndex++;
+                    showHistoryResult(historyViewIndex);
+                }
+            });
+
+            // 单词详情模态框关闭
+            document.getElementById('closeWordDetailModal').addEventListener('click', () => {
+                document.getElementById('wordDetailModal').style.display = 'none';
+            });
+            document.getElementById('wordDetailModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('wordDetailModal')) {
+                    document.getElementById('wordDetailModal').style.display = 'none';
+                }
+            });
+
+            window.addEventListener('DOMContentLoaded', async () => {
+                initTextbookDropdowns();
+                loadSettings();
+                if (localStorage.ON_MyWords_Bank != "1") { await importWordsBank(); }
+                switchView('home');
+                updateModeButtons();
+            });
+        })();
+    </script>
+</body>
+</html>
