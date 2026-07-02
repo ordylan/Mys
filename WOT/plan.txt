@@ -1,0 +1,55 @@
+目前差: collection内图片
+explore.json内对特殊区域产出物品的限定
+任务系统,与mykps打通
+按钮的图中定位
+
+
+
+
+///////////////
+不删留着
+纯英语游戏"Wind’Ordylan Town" 
+字体使用 IM Fell Great Primer.ttf
+许多都是图片!你没有就放占位的地址
+技术栈：Vite + Vue 3+ Vue Router Vant  Pinia 等流行 不过时的
+游戏内容必须放/public/ 如图片 json等! 为了方便更新! 
+复古风格! 
+进入主页就是一个大大的地图（/public/maps/Wind’Ordylan.svg 以及对应json）
+
+Thrymton
+Scylfden
+Fenwryck
+Nenitu Wall
+Hafneld
+为了方便  点击这些都可以进行“探索”
+例外Castelder--我的收藏馆
+例外Roradosi Market 交易页面
+
+探索： explore页面 展示当前区域多个房子正视图片（F.svg  即Front）和名称(例如Thrymton-1,2,3...(具体名字在json里面以及对应的“房子地图以及对应的json”,例如/public/maps/Wind’Ordylan/Thrymton.json(你帮我生成)))  可以选择一个房子探索(不限顺序探索! 全部探索完成可以也继续点击,回去看房子样子)! 例如/public/maps/Wind’Ordylan/Thrymton/里面有  LFRBT 5个svg 对应房子外部5个方向  文件夹含有 以及 main.json  记录了各个楼层的详细数据!level是层数从0也就是gf开始，有时也会有-1（bf） 其他的就比如1f 2f （对应楼层里面有不同带名字的区域room是探索的！不管重名！（未来是要展示对应区域的，这里为了方便就像主页一样 列一个表格在下面  有探索按钮！（例如探索 探索中 探索完成））） 楼层图例如有bf gf 1f 2f 3f.svg  也可以切换楼层  不强求按顺序
+
+
+有收藏馆，等
+
+//////////////
+建造模式  使用phaser3实现
+数据库WOT有MyHouse表, 一层floor楼一行. 例如MyHouse.floor=1  MyHouse.objs=[{oid:123456,id:"table",x:0.5,y:0.5,rotate:0},{oid:111,id:"wall",x:0,y:0.5,rotate:0},{oid:121212,id:"stair",x:1.5,y:1.5,rotate:0,to:131313}]
+物品xy为质心坐标,大小碰撞见core/objs.json
+oid为2016.6.1 00:00起到现在的0.1s数(考虑重复,当生成的id小于等于上一词输出,则上一词输出+1进行输出)用于未来删除等判定.
+id为物品标识符,用于在json获取图片,物品大小等
+rotate:0 1 2 3 4 5 6 7 0不旋转 1顺时针旋转45° 2顺时针旋转90° 类推...
+其中id=stair楼梯需要to属性,to为目标的oid楼梯无碰撞但是用户停留有切换楼层按钮(不考虑同一楼梯既上楼又下楼)
+其中id=door门需要open属性, open属性为true则门打开,否则门关闭
+(加载地图不考虑碰撞之类的,只管加载,因为碰撞重叠检测在建造的时候就处理了,用户造不出来)
+ objs.json里面   "collision": true则碰撞
+allowUse为是否可操作的家具
+allowDisplay=false则不是家具,不能摆放,例如wood是木头,材料不能摆放
+materials是制作需要的材料们
+from是可以制作它的家具id用逗号分隔
+time是制作需要的秒数
+用户背包数据库WOT有MyObjects  包含id和count
+
+画面:2d投影图
+主人公红点暂定大小0.1x0.1 并且能移动！ 移到边上相当于继续 看上去人位置不变 背景房子动 暂且wasd操作 q按钮进入或退出建造模式  展示地面网格 是1x1的但是肯定要放大展示 暂且60px
+建造模式暂且实现可选择MyObjects已有的家具(包含墙等)
+选择后  点击画面对应位置就可以建造了! 注意  点击区域(精度低)没碰撞若可以建造,门墙窗一定要选取合适点贴网格! 其他若可以(当前  或者自动适应周围比较近的可以摆放地方),家具也可以摆放,避免碰撞!
+否则弹出"碰撞". 若可以摆放  用户可以点击左右旋转按钮进行旋转  也有取消 确认按钮(门墙窗自动贴网格,无(默认是横着的方向0,竖着的是2))

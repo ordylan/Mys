@@ -1,0 +1,347 @@
+{
+  "objs": {
+    "wall": {
+      "img": "objs/wall.png",
+      "x": 1,
+      "y": 0.05,
+      "desc": "Solid walls hold up the entire house and keep dangers out.",
+      "collision": true,
+      "allowDisplay": true,
+      "allowUse": false,
+      "materials": [
+        { "id": "wood", "amount": 8 },
+        { "id": "stone", "amount": 6 }
+      ],
+      "from": "materialWorkbench",
+      "time": 0
+    },
+    "door": {
+      "img": "objs/door.png",
+      "x": 1,
+      "y": 0.05,
+      "desc": "Sturdy doors fend off intruders and guard the warmth of home.",
+      "collision": false,
+      "allowDisplay": true,
+      "allowUse": true,
+      "materials": [
+        { "id": "wood", "amount": 6 },
+        { "id": "iron", "amount": 2 }
+      ],
+      "from": "materialWorkbench",
+      "time": 0
+    },
+    "stair": {
+      "img": "objs/stair.png",
+      "x": 0.9,
+      "y": 0.9,
+      "desc": "Winding stairs connect different spaces and lead you to new secrets.",
+      "collision": false,
+      "allowDisplay": true,
+      "allowUse": true,
+      "materials": [
+        { "id": "wood", "amount": 12 },
+        { "id": "iron", "amount": 3 }
+      ],
+      "from": "materialWorkbench",
+      "time": 0
+    },
+    "window": {
+      "img": "objs/window.png",
+      "x": 1,
+      "y": 0.05,
+      "desc": "Open windows allow light to enter and give you a fresh view.",
+      "collision": true,
+      "allowDisplay": true,
+      "allowUse": true,
+      "materials": [
+        { "id": "wood", "amount": 5 },
+        { "id": "glass", "amount": 3 },
+        { "id": "iron", "amount": 1 }
+      ],
+      "from": "materialWorkbench",
+      "time": 0
+    },
+    "materialWorkbench": {
+      "img": "objs/materialWorkbench.png",
+      "x": 0.8,
+      "y": 0.6,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A dedicated processing station for all construction materials, turning raw resources into usable building components.",
+      "materials": [
+        { "id": "wood", "amount": 15 },
+        { "id": "stone", "amount": 10 },
+        { "id": "iron", "amount": 5 }
+      ],
+      "from": "materialWorkbench",
+      "time": 60
+    },
+    "sturdyWoodTable": {
+      "img": "objs/sturdyWoodTable.png",
+      "x": 0.7,
+      "y": 0.7,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A thick solid wooden table, stable and durable for placing items and crafting.",
+      "materials": [
+        { "id": "wood", "amount": 6 },
+        { "id": "iron", "amount": 2 }
+      ],
+      "from": "materialWorkbench",
+      "time": 30
+    },
+    "wood": {
+      "img": "objs/materials/wood.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Basic wooden material obtained from logging, the foundation for most wooden structures and furniture.",
+      "materials": [],
+      "from": "",
+      "time": 0
+    },
+    "stone": {
+      "img": "objs/materials/stone.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Hard stone material mined from rock formations, ideal for load-bearing structures and crafting stations.",
+      "materials": [],
+      "from": "",
+      "time": 0
+    },
+    "iron": {
+      "img": "objs/materials/iron.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Refined iron ingot smelted from ore, used for hardware, tools and structural reinforcement.",
+      "materials": [],
+      "from": "",
+      "time": 0
+    },
+    "glass": {
+      "img": "objs/materials/glass.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Transparent glass panel smelted from sand, essential for windows and light-transmitting structures.",
+      "materials": [
+        { "id": "sand", "amount": 5 }
+      ],
+      "from": "furnace",
+      "time": 20
+    },
+    "sand": {
+      "img": "objs/materials/sand.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Sand obtained from the beach, used for crafting glass and other materials.",
+      "materials": [],
+      "from": "",
+      "time": 0
+    },
+    "furnace": {
+      "img": "objs/furnace.png",
+      "x": 0.5,
+      "y": 0.5,
+      "desc": "High-temperature smelting furnace, used to melt sand into glass and smelt iron ore into iron ingots.",
+      "collision": true,
+      "allowDisplay": true,
+      "allowUse": true,
+      "materials": [
+        { "id": "stone", "amount": 20 },
+        { "id": "wood", "amount": 4 },
+        { "id": "iron", "amount": 3 }
+      ],
+      "from": "materialWorkbench",
+      "time": 60
+    },
+    "cotton": {
+      "img": "objs/materials/cotton.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Soft cotton fiber harvested from plants, used for weaving fabric.",
+      "materials": [],
+      "from": "",
+      "time": 0
+    },
+    "clay": {
+      "img": "objs/materials/clay.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Malleable clay dug from the earth, ideal for pottery and bricks.",
+      "materials": [],
+      "from": "",
+      "time": 0
+    },
+    "fabric": {
+      "img": "objs/materials/fabric.png",
+      "x": 0,
+      "y": 0,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": false,
+      "desc": "Woven fabric cloth, soft and versatile for bedding and decorations.",
+      "materials": [
+        { "id": "cotton", "amount": 3 }
+      ],
+      "from": "loom",
+      "time": 20
+    },
+    "loom": {
+      "img": "objs/loom.png",
+      "x": 0.8,
+      "y": 0.8,
+      "desc": "A hand-operated loom used to weave cotton into fabric.",
+      "collision": true,
+      "allowDisplay": true,
+      "allowUse": true,
+      "materials": [
+        { "id": "wood", "amount": 10 },
+        { "id": "iron", "amount": 3 }
+      ],
+      "from": "materialWorkbench",
+      "time": 40
+    },
+    "woodenChair": {
+      "img": "objs/woodenChair.png",
+      "x": 0.5,
+      "y": 0.5,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A simple wooden chair, perfect for sitting by the fire.",
+      "materials": [
+        { "id": "wood", "amount": 4 },
+        { "id": "iron", "amount": 1 }
+      ],
+      "from": "materialWorkbench",
+      "time": 15
+    },
+    "woodenBed": {
+      "img": "objs/woodenBed.png",
+      "x": 1.2,
+      "y": 0.7,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A comfortable bed with a soft mattress, a place to rest and restore energy.",
+      "materials": [
+        { "id": "wood", "amount": 12 },
+        { "id": "fabric", "amount": 5 },
+        { "id": "iron", "amount": 2 }
+      ],
+      "from": "materialWorkbench",
+      "time": 45
+    },
+    "bookshelf": {
+      "img": "objs/bookshelf.png",
+      "x": 0.7,
+      "y": 0.2,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A tall bookshelf filled with knowledge, perfect for storing books and curiosities.",
+      "materials": [
+        { "id": "wood", "amount": 8 },
+        { "id": "iron", "amount": 2 }
+      ],
+      "from": "materialWorkbench",
+      "time": 30
+    },
+    "rug": {
+      "img": "objs/rug.png",
+      "x": 0.7,
+      "y": 0.4,
+      "collision": false,
+      "allowUse": false,
+      "allowDisplay": true,
+      "desc": "A colorful woven rug that adds warmth and style to any floor.",
+      "materials": [
+        { "id": "fabric", "amount": 4 }
+      ],
+      "from": "materialWorkbench",
+      "time": 15
+    },
+    "flowerPot": {
+      "img": "objs/flowerPot.png",
+      "x": 0.2,
+      "y": 0.2,
+      "collision": false,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A small terracotta pot for planting beautiful flowers, bringing life indoors.",
+      "materials": [
+        { "id": "clay", "amount": 3 }
+      ],
+      "from": "furnace",
+      "time": 20
+    },
+    "woodenChest": {
+      "img": "objs/woodenChest.png",
+      "x": 0.7,
+      "y": 0.5,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A sturdy wooden chest with iron fittings, secure storage for your treasures.",
+      "materials": [
+        { "id": "wood", "amount": 8 },
+        { "id": "iron", "amount": 2 }
+      ],
+      "from": "materialWorkbench",
+      "time": 25
+    },
+    "lampPost": {
+      "img": "objs/lampPost.png",
+      "x": 0.2,
+      "y": 0.2,
+      "collision": false,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A tall iron lamp post that casts a warm glow, lighting up the dark.",
+      "materials": [
+        { "id": "iron", "amount": 4 },
+        { "id": "glass", "amount": 2 }
+      ],
+      "from": "materialWorkbench",
+      "time": 30
+    },
+    "grandfatherClock": {
+      "img": "objs/grandfatherClock.png",
+      "x": 0.3,
+      "y": 0.3,
+      "collision": true,
+      "allowUse": true,
+      "allowDisplay": true,
+      "desc": "A stately grandfather clock that marks the passage of time with a soothing tick-tock.",
+      "materials": [
+        { "id": "wood", "amount": 6 },
+        { "id": "iron", "amount": 3 },
+        { "id": "glass", "amount": 1 }
+      ],
+      "from": "materialWorkbench",
+      "time": 60
+    }
+  }
+}

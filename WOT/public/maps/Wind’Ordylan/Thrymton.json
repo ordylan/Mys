@@ -1,0 +1,13 @@
+{
+  "name": "Thrymton",
+  "houses": [
+    { "id": "Thrymton-1", "name": "Thrymton-1" },
+    { "id": "Thrymton-2", "name": "Thrymton-2" },
+    { "id": "Thrymton-3", "name": "Thrymton-3" },
+    { "id": "Thrymton-4", "name": "Thrymton-4" },
+    { "id": "Thrymton-5", "name": "Thrymton-5" },
+    { "id": "Thrymton-6", "name": "Thrymton-6" },
+    { "id": "Thrymton-7", "name": "Thrymton-7" },
+    { "id": "Thrymton-8", "name": "Thrymton-8" }
+  ]
+}

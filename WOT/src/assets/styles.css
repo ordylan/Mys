@@ -1,0 +1,139 @@
+@font-face {
+  font-family: 'IMFell';
+  src: url("/IM%20Fell%20Great%20Primer.ttf") format('truetype');
+}
+body { font-family: IMFell, serif; margin: 16px; }
+.map-wrap,.map-wrap2 { max-width: 900px; }
+.map-svg ,.house-thumb{ width: 100%; height: auto; }
+
+:root{
+  /* Retro palette */
+  --bg: #F2EDDE;
+  --muted-1: #8B796B;
+  --muted-2: #B2B2B2;
+  --muted-3: #B29C85;
+  --muted-4: #3a3434;
+  --accent-1: #A58F7D;
+  --accent-2: #B27559;
+  --paper: #E5D6B7;
+
+  /* spacing */
+  --gap: 12px;
+  --radius: 6px;
+}
+
+/* Collection item gradients for quality tiers 1..5: red, green, blue, purple, gold */
+/* 品质1 - 柔和珊瑚粉 → 暖红 */
+.quality-1 {
+  background: linear-gradient(180deg, #dfd9da, #b6b5b5);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* 品质2 - 清新草绿 → 深翠绿 */
+.quality-2 {
+  background: linear-gradient(180deg, #7eb639, #3ac63f);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* 品质3 - 天空蓝 → 深海蓝 */
+.quality-3 {
+  background: linear-gradient(180deg, #4facfe, #1e3a8a);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* 品质4 - 紫罗兰 → 深紫 */
+.quality-4 {
+  background: linear-gradient(180deg, #b388ff, #6a1b9a);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* 品质5 - 璀璨金 → 亮橙金 */
+.quality-5 {
+  background: linear-gradient(180deg, #ffe082, #f57c00);
+  color: #1e1e1e;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.5);
+}
+
+
+.collections-card { border-radius:8px; padding:6px }
+
+/* Page basics */
+body { background: var(--bg); color: var(--muted-4); }
+.page { max-width: 980px; margin: 18px auto; padding: 14px; background: linear-gradient(180deg,var(--paper),transparent); border-radius: var(--radius); box-shadow: 0 2px 0 rgba(0,0,0,0.06) inset; }
+.page h1, .page h3 { color: var(--muted-1); margin: 6px 0; }
+
+/* Header with back button */
+.page-header{ display:flex; align-items:center; gap:12px; margin-bottom:8px }
+.page-header .title{ font-size:1.25rem; font-weight:600 }
+
+/* Buttons */
+.btn{ display:inline-block; padding:8px 12px; border-radius:6px; border:1px solid var(--muted-3); background:var(--paper); color:var(--muted-1); cursor:pointer; font-weight:600 }
+.btn:disabled{ opacity:0.5; cursor:not-allowed }
+.btn-back{ padding:6px 10px; font-size:0.95rem }
+.btn-primary{ background:var(--muted-1); color:var(--bg); border-color:var(--muted-1) }
+
+/* Image utilities */
+.img-responsive{ width:100%; height:auto; display:block }
+.img-small{ max-width:120px }
+.img-medium{ max-width:320px }
+.img-large{ max-width:680px }
+.preview-img{ width:100%; max-width:680px; height:auto; border:1px solid rgba(0,0,0,0.06); background:#fff; border-radius:4px }
+
+/* Typography utilities */
+.text-xs{ font-size:0.75rem }
+.text-sm{ font-size:0.9rem }
+.text-base{ font-size:1rem }
+.text-lg{ font-size:1.1rem }
+.text-xl{ font-size:1.25rem }
+
+/* Layout helpers */
+.preview-main{ display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap }
+.floors {
+  min-width: 140px;
+  gap: 6px;
+  display: flex;
+  flex-wrap: wrap; /* 换行写在父容器 */
+}
+/* 按钮外层盒子单独加弹性 */
+.floors > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+.floors button{ display:block; width:15%; margin-bottom:6px ;}
+
+.rooms-table{ width:100%; border-collapse:collapse; background:transparent }
+.rooms-table th, .rooms-table td{ padding:8px; text-align:left; border-bottom:1px dashed rgba(0,0,0,0.05) }
+.slots-note{ margin-top:8px; color:var(--muted-2); font-size:0.9rem }
+
+/* Explore list: compact house rows with responsive thumbnails and larger names */
+.explore-list ul{ list-style:none; margin:0; padding:0 }
+.explore-list li{ border-bottom:1px solid rgba(0,0,0,0.03); padding:10px 0 }
+.house-row{ display:flex; gap:12px; align-items:center; cursor:pointer }
+.house-row:hover{ background:rgba(0,0,0,0.02) }
+.map-wrap{ flex:0 0 140px; max-width:160px }
+.house-thumb{ width:100%; height:auto; display:block; border-radius:6px }
+.house-meta{ flex:1; min-width:0 }
+.house-meta strong{ display:block; font-size:1.1rem; color:var(--muted-1) }
+
+/* Card style variant for medium+ screens */
+.house-card{ display:flex; gap:12px; align-items:center }
+.house-card .house-title{ font-size:1.25rem; line-height:1.1 }
+
+@media (min-width: 900px){
+  .explore-list ul{ display:grid; grid-template-columns: repeat(2, 1fr); gap:14px }
+  .explore-list li{ padding:0 }
+  .house-card{ border:1px solid rgba(0,0,0,0.03); padding:12px; border-radius:8px; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent) }
+}
+
+
+
+/* Utility helpers for quick control */
+.u-center{ text-align:center }
+.u-muted{ color:var(--muted-2) }
+

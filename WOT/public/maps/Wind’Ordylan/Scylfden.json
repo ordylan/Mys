@@ -1,0 +1,13 @@
+{
+  "name": "Scylfden",
+  "houses": [
+    { "id": "Scylfden-1", "name": "Scylfden-1" },
+    { "id": "Scylfden-2", "name": "Scylfden-2" },
+    { "id": "Scylfden-3", "name": "Scylfden-3" },
+    { "id": "Scylfden-4", "name": "Scylfden-4" },
+    { "id": "Scylfden-5", "name": "Scylfden-5" },
+    { "id": "Scylfden-6", "name": "Scylfden-6" },
+    { "id": "Scylfden-7", "name": "Scylfden-7" },
+    { "id": "Scylfden-8", "name": "Scylfden-8" }
+  ]
+}
