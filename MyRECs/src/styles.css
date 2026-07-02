@@ -1,0 +1,37 @@
+:root{--accent:#0b5cff}
+body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:0;padding:16px;background:#f7f8fb;color:#111}
+.app{max-width:1000px;margin:0 auto}
+.inputs{display:flex;gap:12px;margin-bottom:12px}
+
+.inputs textarea{flex:1;min-height:140px;padding:8px;font-size:18px}
+.inputs .meta{width:166px;display:flex;flex-direction:column;gap:8px}
+.btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+.list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.entry{background:#fff;padding:10px;border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,0.04);display:flex;justify-content:space-between}
+.entry .left{flex:1}
+.meta-row{font-size:12px;color:#666;margin-bottom:6px}
+.emphasize{text-decoration-line:underline;text-decoration-style:wavy;text-decoration-color:#57d9f6}
+.cloze{cursor:pointer;display:inline-block;position:relative}
+.cloze .cloze-hidden{display:inline-block;border-bottom:2px solid #000;height:1em;vertical-align:middle}
+.cloze .cloze-answer{display:none}
+.cloze.revealed .cloze-hidden{opacity:0.6}
+.cloze.revealed .cloze-answer{display:inline-block}
+
+/* global toggle to reveal all clozes without per-instance JS */
+.app.all-revealed .cloze .cloze-answer{display:inline-block}
+.app.all-revealed .cloze .cloze-hidden{opacity:0.6}
+
+/* limit sizes for inserted images */
+.entry .content img,
+.content img,
+.cloze .cloze-answer img{
+	max-width:360px;
+	max-height:240px;
+	width:auto;
+	height:auto;
+	display:inline-block;
+	vertical-align:middle;
+}
+
+/* ensure images in content are responsive */
+.entry .content img{max-width:100%}
