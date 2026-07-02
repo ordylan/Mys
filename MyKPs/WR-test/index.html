@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daily Plans Report</title>
+  <link rel="stylesheet" href="./weekly-report.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="./quote-generator.js"></script>
+
+</head>
+<body>
+  <div class="container">
+    <h1>Daily Plans Report</h1>
+
+    <div id="quoteCarousel" class="quote-card">
+      <div id="quoteText" class="quote-text">-- Daily Quote --</div>
+      <div class="quote-controls">-- Random Quotes --   Interval <input id="quoteInterval" type="number" min="2" value="6" style="width:60px"> sec (hover to pause)
+        <label style="margin-left:12px"><input id="comboMode" type="checkbox"> Combo Mode</label>
+        <label style="margin-left:12px">Style <select id="quoteStyleSelect"><option value="default">Default</option><option value="encourage">Encourage</option><option value="celebrate">Celebrate</option><option value="gentle">Gentle</option><option value="funny">Funny</option></select></label>
+        <button id="regenQuoteBtn" style="margin-left:8px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer">Switch Now</button>
+        <span id="comboCount" style="margin-left:8px;color:#666;font-size:13px"></span>
+      </div>
+    </div>
+
+    <div class="controls"> 
+        Set Date:
+      <div class="quick-select-buttons">
+        <button id="quickAllBtn" class="quick-btn">All</button>
+        <button id="quick30DBtn" class="quick-btn">Last30D</button>
+        <button id="quick7DBtn" class="quick-btn">Last7D</button>
+      </div> or Custom :
+      <label>From <input type="date" id="startDate" value="2025-11-01"></label><label>to<input type="date" id="endDate" value="2025-11-01"></label>
+      <!-- 添加快速选择按钮 -->
+
+   <button id="loadBtn" style="display: none;">Generate Report</button> 
+    mode:
+   <select id="viewSelect"><option value="overview">Overview View</option><option value="table">Table View</option></select><button id="exportCsvBtn"style="display: none;">Export CSV</button>
+         </div>
+
+    <div id="overview" class="panel">
+      <div class="cards" id="overviewCards"></div>
+      
+      <!-- 单独的趋势图 -->
+      <div class="main-chart">
+        <div class="chart-card main-trend-card">
+          <button class="zoom-btn" data-chart="trend">+</button>
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- 下方三个图表 -->
+      <div class="charts">
+        <div class="chart-card">
+          <button class="zoom-btn" data-chart="category">+</button>
+          <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <button class="zoom-btn" data-chart="tag">+</button>
+          <canvas id="tagChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <button class="zoom-btn" data-chart="dailyCategory">+</button>
+          <canvas id="dailyCategoryChart"></canvas>
+        </div>
+      </div>
+      <div id="suggestions" class="card" style="margin-top:12px;">
+<h3>Study Suggestions</h3><div id="suggestionsContent">No suggestions -- please select a date and generate the report</div>
+      </div>
+    </div>
+
+    <div id="tableView" class="panel" style="display:none;">
+      <div class="table-wrapper">
+        <table id="detailsTable">
+          <thead>
+<tr><th style="width:100px">Date</th><th style="width:70px">Category</th><th style="width:90px">Tags</th><th style="width:220px">Key Points</th><th>Content</th><th style="width:90px">Status</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Fullscreen zoom modal -->
+    <div id="zoomModal" class="zoom-modal">
+      <div class="zoom-modal-content">
+        <span class="close-btn">&times;</span>
+        <div class="zoom-chart-container">
+          <canvas id="zoomChart"></canvas>
+        </div>
+        <div class="zoom-chart-title" id="zoomChartTitle"></div>
+      </div>
+    </div>
+
+    <div id="notes" class="small">Notes</div>
+  </div>
+
+  <script src="./weekly-report.js"></script>
+ 
+</body>
+</html>
