@@ -6,16 +6,20 @@
     <script src="jszip.min.js">
     </script>
     <style>
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+}
 #wordDisplayBox {
-    position: relative;  
-    min-height: 120px; 
+    position: relative;
 }
 #wordImageContainer {
     position: absolute;
+    z-index: -1;
     top: 0;
     right: 0;
     max-height: 100px;
-    z-index: 5;}
+}
 #wordDisplayBox > h2,
 #wordDisplayBox > #wordAccent,
 #wordDisplayBox > #dictationHint {
@@ -24,6 +28,8 @@
 }
 #exampleSentenceBox {
     clear: both;
+    position: relative;
+    background-color: #e7e7e7;
 }
         #progressBar {
             z-index: 30;
@@ -76,10 +82,10 @@
 
         body {
             font-family: sans-serif;
-            max-width: 700px;
             margin: 0 auto;
-            padding: 16px;
+            max-width: 688px;
             color: #333;
+            background:#efede9;
         }
         h1,
         h2,
@@ -122,7 +128,7 @@
             padding: 10px 12px;
             width: 100%;
             text-align: left;
-            background: #fafafa;
+            background: #fff6ec;
             border: 1px solid #ddd;
             border-radius: 3px;
             font-size: 15px;
@@ -144,7 +150,7 @@
             border: 1px solid #ddd;
             padding: 14px;
             margin: 10px 0;
-            background: #fdfdfd;
+            background: #fbf4ee;
             border-radius: 3px;
             font-size: 14px;
             line-height: 1.6;
@@ -190,13 +196,6 @@
             border-radius: 3px;
             border: 1px solid #eee;
         }
-        .mode-bar {
-            margin: 10px 0;
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
         .review-count-wrap {
             display: inline-flex;
             align-items: center;
@@ -216,12 +215,6 @@
             background: #fff3cd;
             border-color: #e6c340;
         }
-
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-        }
         #topHeader {
             position: fixed;
             top: 0;
@@ -229,8 +222,7 @@
             right: 0;
             height: 10vh;
             min-height: 50px;
-            background: white;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            background: #e6e6e6;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -243,7 +235,7 @@
         }
         #mainContent {
             margin-top: 10vh;
-            height: 90vh;
+            height: 90%;
             overflow-y: auto;
             padding: 15px;
         }
@@ -290,7 +282,7 @@
             z-index: 200;
         }
         .modal-content {
-            background: white;
+            background: #f0edf1;
             border-radius: 12px;
             padding: 25px;
             width: 90%;
@@ -367,7 +359,7 @@
         /* 取词翻译悬浮窗 */
         .word-tooltip {
             position: fixed;
-            background: white;
+            background: #ececff;
             border: 1px solid #bbb;
             border-radius: 6px;
             padding: 8px 12px;
@@ -418,23 +410,24 @@
 <link rel="shortcut icon" href="favicon.ico" type="image/vnd.microsoft.icon">
 <link rel="icon" href="favicon.ico" type="image/vnd.microsoft.icon">
 <link rel="manifest" href="manifest.json">
+</head>
+<body>
     <div id="progressBar" style="width: 0%; z-index: 1000">
         <div id="progressBackground"></div>
         <div id="progressSolid"></div>
     </div>
-</head>
-<body>
-    <div id="topHeader">
-        <h1>MyWords 单词学习</h1>
-        <button id="settingsBtn">设置</button>
-    </div>
+<div id="topHeader">
+    <button id="backHomeBtn">←Back</button>
+    <h1 style="flex: 1; text-align: center; margin: 0;" id="currentModeLabel">MyWords 单词学习</h1>
+    <button id="settingsBtn">Settings</button>
+</div>
 
     <div id="mainContent">
-        <span id="progressText"></span>
-        <input type="checkbox" id="enableAudio" checked style="margin: 4px 0; display: none;">
+        <input type="checkbox" id="enableAudio" checked style="display: none;">
 
         <!-- 主页视图 -->
         <div id="homeView">
+            <span id="progressText"></span>
             <h2>加载课本</h2>
             <select id="textbookSelect">
                 <option value="">-- 请选择课本 --</option>
@@ -492,12 +485,6 @@
 
         <!-- 学习/复习/默写视图 -->
         <div id="studyView" style="display: none;">
-            <div style="margin-bottom: 12px;">
-                <button id="backHomeBtn">返回主页</button>
-                <span id="currentModeLabel" style="font-weight: bold; margin-left: 12px; font-size: 1.1rem;"></span>
-            </div>
-            <div id="progressInfo" style="font-size: 14px; color: #666; margin-bottom: 6px;"></div>
-
             <div id="wordDisplayBox">
                 <h2 style="display: inline;">
                     <span id="currentWordSpan"></span>
@@ -506,9 +493,9 @@
                 </h2>
                 <div id="wordAccent" style="color: #555; margin: 2px 0;"></div>
                 <div id="dictationHint" style="display: none;"></div>
+                <div id="exampleSentenceBox"></div>
                 <div id="wordImageContainer"></div>
-                <div id="exampleSentenceBox" style="margin: 6px 0; padding: 8px; background: #f9f9f9; border-radius: 3px;"></div>
-          <div id="completionOverlay" style="display:none; text-align:center; padding:20px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e0e0; margin-top:10px;">
+                <div id="completionOverlay" style="display:none; text-align:center; padding:20px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e0e0; margin-top:10px;">
     <h2 id="completionTitle"></h2>
     <button id="restartBtn" style="margin-top:10px; padding:7px 20px; font-size:15px;">重新开始</button>
 </div>
@@ -528,8 +515,8 @@
                 <div class="result-title" id="resultTitle"></div>
                 <div id="wordDetailsBox"></div>
                 <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                    <button id="prevHistoryBtn" class="nav-history-btn" disabled>← 上一词</button>
-                    <button id="nextHistoryBtn" class="nav-history-btn" disabled>下一词 →</button>
+                    <button id="prevHistoryBtn" class="nav-history-btn" disabled>←上词</button>
+                    <button id="nextHistoryBtn" class="nav-history-btn" disabled>下词→</button>
                     <button id="nextWordBtn" style="margin-left: auto;">继续</button>
                 </div>
             </div>
@@ -543,12 +530,13 @@
     <!-- 设置模态框 -->
     <div id="settingsModal" class="modal-overlay">
         <div class="modal-content">
-            <h3>设置</h3>
+            <h3>Settings</h3>
             <label><input type="checkbox" id="settingAudio" checked>启用音频</label><br><br>
             <label>复习默认数量: <input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
             <label>默写默认数量: <input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
-            <button id="saveSettingsBtn">保存</button>
-            <button id="closeSettingsBtn">取消</button>
+            <button onclick="if(confirm('会刷新页面!继续?')){localStorage.ON_MyWords_Bank=0;location.reload();}">[重载词库]</button><br><br>
+            <button id="saveSettingsBtn">Save</button>
+            <button id="closeSettingsBtn">Cancel</button>
         </div>
     </div>
 
@@ -622,7 +610,7 @@
                         const pct = Math.min(80, Math.round((loaded / estimatedBytes) * 80));
                         progressBar.style.width = pct + '%';
                         if (progressText) progressText.textContent =
-                            `已下载 ${(loaded / 1048576).toFixed(1)} MB / 约 ${estimatedSizeMB} MB`;
+                            `词库已下载 ${(loaded / 1048576).toFixed(1)} MB / 约 ${estimatedSizeMB} MB`;
                     }
                 } catch (streamErr) {
                     response = await fetch(url);
@@ -661,7 +649,7 @@
                 await importToDB(wordList);
                 progressBar.style.width = '100%';
                 if (progressText) progressText.textContent = '文本词库下载完成';
-                setTimeout(() => { progressBar.style.display = 'none'; }, 600);
+                setTimeout(() => { progressBar.style.display = 'none';progressBar.style.display = 'none'; }, 1200);
                 async function importToDB(words) {
                     const db = await openDB();
                     const tx = db.transaction('wordResources', 'readwrite');
@@ -680,16 +668,42 @@
                     await new Promise(res => { tx.oncomplete = res; });
                 }
             }
+function updateProgress(percent) {
+    document.getElementById('progressBar').style.display='block';
+document.getElementById('progressBar').style.width = percent + '%';
+}
+function getWordResource(db, word) {
+    //太模糊了  极易出错  但总比没有好
+  return new Promise(async (resolve, reject) => {
+    const tx = db.transaction(WORD_STORE, 'readonly');
+    const store = tx.objectStore(WORD_STORE);
 
-            function getWordResource(db, word) {
-                return new Promise((res, rej) => {
-                    const tx = db.transaction(WORD_STORE, 'readonly');
-                    const r = tx.objectStore(WORD_STORE).get(word);
-                    r.onsuccess = () => res(r.result);
-                    r.onerror = rej;
-                });
-            }
+    const tryWord = async (w) => {
+      for (let len = w.length; len > 0; len--) {
+        const key = w.substring(0, len);
+        const result = await new Promise((res) => {
+          const req = store.get(key);
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => res(undefined);
+        });
+        if (result !== undefined) return result;
+      }
+      return null;
+    };
 
+    for (let drop = 0; drop <= 3; drop++) {
+      if (drop >= word.length) break;
+      const subWord = word.substring(drop);
+      const found = await tryWord(subWord);
+      if (found !== null) {
+        resolve(found);
+        return;
+      }
+    }
+
+    resolve(null);
+  });
+}
             function getFavourite(db, word) {
                 return new Promise((res, rej) => {
                     const tx = db.transaction(FAVOURITE_STORE, 'readonly');
@@ -889,7 +903,7 @@ async function loadZipForWord(word) {
                     }
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
-                    document.getElementById('playAudioBtn').click();
+                   // document.getElementById('playAudioBtn').click();
                 } catch (e) {}
             }
 
@@ -1067,7 +1081,7 @@ async function buildReviewList(count, filter, sort) {
 }
 async function buildDictationList(count, filter, sort) {
     const db = await openDB();
-    let records = (await getAllFavourites(db)).filter(r => r.word && r.dictationCount > 0);
+    let records = (await getAllFavourites(db)).filter(r => r.word && (r.answerCount > 0 || r.dictationCount > 0));
     if (filter !== '__all__') {
         const words = await loadTextbookWordsFromFile(filter);
         const set = new Set(words.map(w => w.toLowerCase()));
@@ -1113,6 +1127,7 @@ async function buildDictationList(count, filter, sort) {
             }
 
             async function displayCurrentWord() {
+                document.getElementById('wordDisplayBox').style.display = '';
                 dictationSubmitted = false;
  if (currentIndex >= currentWordList.length) {
     document.getElementById('currentWordSpan').style.display = 'none';
@@ -1124,7 +1139,6 @@ async function buildDictationList(count, filter, sort) {
     document.getElementById('exampleSentenceBox').style.display = 'none';
     document.getElementById('optionsArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
-    document.getElementById('progressInfo').textContent = '';
 
     const modeLabel = currentMode === 'learn' ? '学习' : currentMode === 'review' ? '复习' : '默写';
     document.getElementById('completionTitle').textContent = `${modeLabel}完成！`;
@@ -1161,7 +1175,34 @@ async function buildDictationList(count, filter, sort) {
                 }
                 const example = getFirstExample(currentWordData.sentences);
                 const exampleBox = document.getElementById('exampleSentenceBox');
-
+                document.getElementById('resultArea').style.display = 'none';
+                if (currentMode === 'dictation') {
+                    document.getElementById('optionsTitle').textContent = '请输入英文单词: ';
+                    document.getElementById('dictationArea').style.display = 'block';
+                    document.getElementById('optionsList').innerHTML = '';
+                    document.getElementById('dictationInput').value = '';
+                    setTimeout(() => {
+                        const inp = document.getElementById('dictationInput');
+                        if (inp) inp.focus();
+                    }, 50);
+                } 
+                else {
+                    document.getElementById('optionsTitle').textContent = '选择正确的翻译: ';
+                    document.getElementById('dictationArea').style.display = 'none';
+                    const means = getChineseMeanings(currentWordData);
+                    if (means.length) {
+                        const opts = generateOptions(word, means[0], currentWordData.similars);
+                        document.getElementById('optionsList').innerHTML = opts.map((o, i) =>
+                            `<button class="option-btn" data-correct="${o.isCorrect}" data-index="${i}">${o.text}</button>`
+                        ).join('');
+                        document.querySelectorAll('.option-btn').forEach(b => b.addEventListener('click',
+                            handleOptionClick));
+                    }
+                }
+                document.getElementById('optionsArea').style.display = 'block';
+                document.getElementById('currentModeLabel').textContent =
+                    `${currentMode==='learn'?'学习':currentMode==='review'?'复习':'默写'}模式 (${currentIndex+1}/${currentWordList.length})`;
+updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/10);
                 const imgContainer = document.getElementById('wordImageContainer');
                 imgContainer.innerHTML = '';
                 if (example.image) {
@@ -1173,7 +1214,7 @@ async function buildDictationList(count, filter, sort) {
                     }
                     const imgContainer = document.getElementById('wordImageContainer');
                     if (blob) {
-                        imgContainer.innerHTML = `<img class="word-img" src="${URL.createObjectURL(blob)}" style="max-height: 100px;">`;
+                        imgContainer.innerHTML = `<img class="word-img" src="${URL.createObjectURL(blob)}" style="max-height: 100px;z-index:0; position: relative;">`;
                     }else {
                        imgContainer.innerHTML = '';
                     }
@@ -1207,33 +1248,6 @@ async function buildDictationList(count, filter, sort) {
                 } else {
                     exampleBox.innerHTML = '<p>暂无例句</p>';
                 }
-
-                document.getElementById('resultArea').style.display = 'none';
-                if (currentMode === 'dictation') {
-                    document.getElementById('optionsTitle').textContent = '请输入英文单词: ';
-                    document.getElementById('dictationArea').style.display = 'block';
-                    document.getElementById('optionsList').innerHTML = '';
-                    document.getElementById('dictationInput').value = '';
-                    setTimeout(() => {
-                        const inp = document.getElementById('dictationInput');
-                        if (inp) inp.focus();
-                    }, 50);
-                } else {
-                    document.getElementById('optionsTitle').textContent = '选择正确的翻译: ';
-                    document.getElementById('dictationArea').style.display = 'none';
-                    const means = getChineseMeanings(currentWordData);
-                    if (means.length) {
-                        const opts = generateOptions(word, means[0], currentWordData.similars);
-                        document.getElementById('optionsList').innerHTML = opts.map((o, i) =>
-                            `<button class="option-btn" data-correct="${o.isCorrect}" data-index="${i}">${o.text}</button>`
-                        ).join('');
-                        document.querySelectorAll('.option-btn').forEach(b => b.addEventListener('click',
-                            handleOptionClick));
-                    }
-                }
-                document.getElementById('optionsArea').style.display = 'block';
-                document.getElementById('progressInfo').textContent =
-                    `${currentMode==='learn'?'学习':currentMode==='review'?'复习':'默写'}进度: ${currentIndex+1}/${currentWordList.length}`;
             }
 
             async function handleOptionClick(e) {
@@ -1319,7 +1333,7 @@ async function buildDictationList(count, filter, sort) {
                 let detailsHTML = '';
                 if (currentMode === 'dictation' && item.userInput !== null) {
                     detailsHTML +=
-                        `<p><strong>你的输入: </strong>${item.userInput} ${isCorrect?'✓':'✗'}</p><p><strong>正确答案: </strong>${item.word}</p>`;
+                        `<p><strong>你的输入: </strong>${item.userInput} ${isCorrect?'√':'×'}</p><p><strong>正确答案: </strong>${item.word}</p>`;
                 }
                 detailsHTML += buildWordDetailsHTML(item.wordData);
                 document.getElementById('wordDetailsBox').innerHTML = detailsHTML;
@@ -1327,7 +1341,9 @@ async function buildDictationList(count, filter, sort) {
                 document.getElementById('resultArea').style.display = 'block';
                 document.getElementById('optionsArea').style.display = 'none';
                 updateHistoryNavButtons();
-                playResultSound(isCorrect);
+                document.getElementById('wordDisplayBox').style.display = 'none';
+                playResultSound(isCorrect);//有点奇怪 先不修复
+                playWordAudio(item.word)
             }
 
             function updateHistoryNavButtons() {
@@ -1364,14 +1380,18 @@ async function buildDictationList(count, filter, sort) {
     }
 }
             function switchView(view) {
+                document.getElementById('currentModeLabel').innerHTML = "MyWords";
+                updateProgress(0);
                 currentView = view;
                 document.getElementById('homeView').style.display = view === 'home' ? 'block' : 'none';
                 document.getElementById('studyView').style.display = view === 'study' ? 'block' : 'none';
                 if (view === 'home') {
+                    document.getElementById('backHomeBtn').style.display = 'none';
                     renderErrorBook();
                     updateModeButtons();
                 }
                 if (view === 'study') {
+                    document.getElementById('backHomeBtn').style.display = '';
                     document.getElementById('currentModeLabel').textContent = currentMode === 'learn' ? '学习模式' :
                         currentMode === 'review' ? '复习模式' : '默写模式';
                 }
@@ -1452,7 +1472,7 @@ document.getElementById('resultArea').style.display = 'none';
                 const favWords = all.filter(r => r.isFavourite && r.word);
                 const listEl = document.getElementById('errorBookList');
                 if (!favWords.length) {
-                    listEl.innerHTML = '<p style="color:#888;">暂无收藏单词</p>';
+                    listEl.innerHTML = '<p style="color:#888;">None</p>';
                     return;
                 }
                 const wordDataMap = {};
@@ -1553,6 +1573,12 @@ document.getElementById('resultArea').style.display = 'none';
                     favData.isFavourite = currentIsFavourite;
                 }
                 await saveFavourite(db, favData);
+    const detailFavBtn = document.querySelector('#wordDetailsBox .fav-btn-inline');
+    if (detailFavBtn) {
+        detailFavBtn.textContent = currentIsFavourite ? '已收藏' : '收藏';
+        detailFavBtn.classList.toggle('faved', currentIsFavourite);
+    }
+
             }
 
             function loadSettings() {
@@ -1693,20 +1719,23 @@ document.getElementById('resultArea').style.display = 'none';
                 }
             });
 
-            document.getElementById('modeLearnBtn').addEventListener('click', () => {
-                if (currentTextbookName) startMode('learn');
-                else alert('请先加载课本');
-            });
+document.getElementById('modeLearnBtn').addEventListener('click', () => {
+    if (currentView === 'study') switchView('home');
+    currentMode = 'learn';
+    updateModeButtons();
+});
 
-            document.getElementById('modeReviewBtn').addEventListener('click', () => {
-                currentMode = 'review';
-                updateModeButtons();
-            });
-            document.getElementById('modeDictationBtn').addEventListener('click', () => {
-                currentMode = 'dictation';
-                updateModeButtons();
-            });
+document.getElementById('modeReviewBtn').addEventListener('click', () => {
+    if (currentView === 'study') switchView('home');
+    currentMode = 'review';
+    updateModeButtons();
+});
 
+document.getElementById('modeDictationBtn').addEventListener('click', () => {
+    if (currentView === 'study') switchView('home');
+    currentMode = 'dictation';
+    updateModeButtons();
+});
             document.getElementById('startReviewBtn').addEventListener('click', () => startMode('review'));
             document.getElementById('startDictationBtn').addEventListener('click', () => startMode('dictation'));
             document.getElementById('backHomeBtn').addEventListener('click', () => switchView('home'));

@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'MyWords_1'; 
+const CACHE_NAME = 'MyWords_1.1'; 
 
 const PRECACHE_URLS = [
   './',
@@ -7,7 +7,7 @@ const PRECACHE_URLS = [
   'Books/SiJiGaoPin.txt',
   'Books/SiJi.txt',
   'Books/LiuXiaoYanSiJi.txt',
-  'Books/LiuJi.txt'
+  'Books/LiuJi.txt','manifest.json','favicon.ico','favicon.png'
 ];
 
 const NETWORK_ONLY_URL = 'WordsBank.json';
