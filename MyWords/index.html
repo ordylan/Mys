@@ -6,6 +6,25 @@
     <script src="jszip.min.js">
     </script>
     <style>
+#wordDisplayBox {
+    position: relative;  
+    min-height: 120px; 
+}
+#wordImageContainer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    max-height: 100px;
+    z-index: 5;}
+#wordDisplayBox > h2,
+#wordDisplayBox > #wordAccent,
+#wordDisplayBox > #dictationHint {
+    padding-right: 180px;
+    box-sizing: border-box;
+}
+#exampleSentenceBox {
+    clear: both;
+}
         #progressBar {
             z-index: 30;
             position: fixed;
@@ -397,7 +416,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="favicon.ico "  type="image/x-icon">
 
-    <link rel="stylesheet" href="1.css">
     <div id="progressBar" style="width: 0%; z-index: 1000">
         <div id="progressBackground"></div>
         <div id="progressSolid"></div>
@@ -424,39 +442,41 @@
             <hr>
 
             <div class="mode-bar">
-                <span><strong>模式：</strong></span>
+                <span><strong>模式: </strong></span>
                 <button id="modeLearnBtn" class="active-mode">学习</button>
                 <button id="modeReviewBtn">复习</button>
                 <button id="modeDictationBtn">默写</button>
 
                 <span id="reviewSettingsPanel" class="review-settings" style="display: none;">
-                    <label>课本：</label>
+                    <label>课本: </label>
                     <select id="reviewTextbookSelect">
                         <option value="__all__">全部(All)</option>
                     </select>
-                    <label>排序：</label>
+                    <label>排序: </label>
                     <select id="reviewSortSelect">
                         <option value="random">随机</option>
-                        <option value="oldest">最旧优先</option>
-                        <option value="mostErrors">最错优先</option>
+                        <option value="earliest">最新优先(刚学完复习)</option>
+                        <option value="oldest">最旧优先(最久未复习)</option>
+                        <option value="mostErrors">最错优先(错误率最高)</option> <option value="randFav">收藏随机</option>
                     </select>
-                    <label>数量：</label>
+                    <label>数量: </label>
                     <input type="number" id="reviewCountInput" value="20" min="5" max="200">
                     <button id="startReviewBtn">开始复习</button>
                 </span>
 
                 <span id="dictationSettingsPanel" class="dictation-settings" style="display: none;">
-                    <label>课本：</label>
+                    <label>课本: </label>
                     <select id="dictationTextbookSelect">
                         <option value="__all__">全部(All)</option>
                     </select>
-                    <label>排序：</label>
+                    <label>排序: </label>
                     <select id="dictationSortSelect">
                         <option value="random">随机</option>
-                        <option value="oldest">最旧优先</option>
-                        <option value="mostErrors">最错优先</option>
+                        <option value="earliest">最新优先(刚学完复习)</option>
+                        <option value="oldest">最旧优先(最久未复习)</option>
+                        <option value="mostErrors">最错优先(错误率最高)</option> <option value="randFav">收藏随机</option>
                     </select>
-                    <label>数量：</label>
+                    <label>数量: </label>
                     <input type="number" id="dictationCountInput" value="20" min="5" max="200">
                     <button id="startDictationBtn">开始默写</button>
                 </span>
@@ -486,10 +506,14 @@
                 <div id="dictationHint" style="display: none;"></div>
                 <div id="wordImageContainer"></div>
                 <div id="exampleSentenceBox" style="margin: 6px 0; padding: 8px; background: #f9f9f9; border-radius: 3px;"></div>
+          <div id="completionOverlay" style="display:none; text-align:center; padding:20px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e0e0; margin-top:10px;">
+    <h2 id="completionTitle"></h2>
+    <button id="restartBtn" style="margin-top:10px; padding:7px 20px; font-size:15px;">重新开始</button>
+</div>
             </div>
 
             <div id="optionsArea">
-                <h3 id="optionsTitle">选择正确的翻译：</h3>
+                <h3 id="optionsTitle">选择正确的翻译: </h3>
                 <div id="optionsList"></div>
                 <div id="dictationArea" style="display: none;">
                     <input type="text" id="dictationInput" placeholder="请输入英文单词..." autocomplete="off"
@@ -509,7 +533,7 @@
             </div>
 
             <div id="reviewEmptyMsg" style="display: none; color: #888; font-size: 15px; margin: 20px 0;">
-                还没有学习过的单词记录, 请先在学习模式下完成一些单词再复习/默写。
+                还没有学习过的单词记录, 请先在学习模式下完成一些单词再复习/默写. 
             </div>
         </div>
     </div>
@@ -519,8 +543,8 @@
         <div class="modal-content">
             <h3>设置</h3>
             <label><input type="checkbox" id="settingAudio" checked>启用音频</label><br><br>
-            <label>复习默认数量：<input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
-            <label>默写默认数量：<input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
+            <label>复习默认数量: <input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
+            <label>默写默认数量: <input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
             <button id="saveSettingsBtn">保存</button>
             <button id="closeSettingsBtn">取消</button>
         </div>
@@ -701,6 +725,7 @@
             }
 
             function saveProgress(db, key, index) {
+                if (!key) return Promise.resolve();  
                 return new Promise((res, rej) => {
                     const tx = db.transaction(PROGRESS_STORE, 'readwrite');
                     const r = tx.objectStore(PROGRESS_STORE).put({ key, index });
@@ -735,8 +760,6 @@
             let currentIsFavourite = false,
                 currentTextbookName = '',
                 currentMode = 'learn';
-            let wordZipCache = {};
-            const MAX_ZIP_CACHE = 5;
             let dictationSubmitted = false;
             let reviewTextbookFilter = '__all__',
                 reviewSortMode = 'random';
@@ -764,20 +787,21 @@
                     const shuffled = [...similars].sort(() => Math.random() - 0.5).slice(0, 3);
                     shuffled.forEach(s => options.push({ text: (s.meanType || '') + ' ' + s.mean, isCorrect: false }));
                 }
-                while (options.length < 4) options.push({ text: '未知选项', isCorrect: false });
+                while (options.length < 4) options.push({ text: 'Unknown', isCorrect: false });
                 return options.sort(() => Math.random() - 0.5);
             }
 
-            async function loadZipForWord(word) {
-                if (wordZipCache[word]) return wordZipCache[word];
-                const resp = await fetch(`Words/${word}.zip`);
-                if (!resp.ok) return null;
-                const zipData = await resp.arrayBuffer();
-                if (Object.keys(wordZipCache).length >= MAX_ZIP_CACHE) delete wordZipCache[Object.keys(wordZipCache)[0]];
-                wordZipCache[word] = await JSZip.loadAsync(zipData);
-                return wordZipCache[word];
-            }
-
+async function loadZipForWord(word) {
+    try {
+        const resp = await fetch(`Words/${word}.zip`);
+        if (!resp.ok) return null;
+        const zipData = await resp.arrayBuffer();
+        return await JSZip.loadAsync(zipData);
+    } catch (err) {
+        console.warn('加载单词资源包失败:', word, err);
+        return null;
+    }
+}
             async function extractResourceFromWordZip(word, path) {
                 if (!path) return null;
                 const zip = await loadZipForWord(word);
@@ -790,14 +814,18 @@
 
             async function loadImageFromZip(word, path) {
                 if (!path) return null;
-                const zip = await loadZipForWord(word);
-                if (!zip) return null;
-                const file = zip.file(path);
-                if (!file) return null;
-                const blob = await file.async('blob');
-                return blob.type ? blob : new Blob([blob], { type: 'image/jpeg' });
+                try {
+                    const zip = await loadZipForWord(word);
+                    if (!zip) return null;
+                    const file = zip.file(path);
+                    if (!file) return null;
+                    const blob = await file.async('blob');
+                    return blob.type ? blob : new Blob([blob], { type: 'image/jpeg' });
+                } catch (e) {
+                    console.warn('加载图片失败:', word, e);
+                    return null;
+                }
             }
-
             function useTTS(word) {
                 if ('speechSynthesis' in window) {
                     const u = new SpeechSynthesisUtterance(word);
@@ -862,17 +890,22 @@
 
             // 将文本中的英文单词包裹为可点击划词翻译的 span
             function wrapWordsInString(str) {
-                if (!str || typeof str !== 'string') return str;
+                //if (!str || typeof str !== 'string') return str;
                 return str.replace(/\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g,
                     '<span class="word-clickable" data-word="$1">$1</span>');
             }
 
             function buildWordDetailsHTML(wordData) {
                 if (!wordData) return '<p>无详细信息</p>';
+                //h2不应该有按钮 但先这样吧  可以运行! 
                 let html = '<div>';
-                html += `<h2>${wrapWordsInString(wordData.word)}</h2>`;
+               html += `<h2 style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <span>${wordData.word}</span>
+    <button class="play-audio-inline" data-word="${wordData.word}">听</button>
+    <button class="fav-btn-inline fav-btn" data-word="${wordData.word}">收藏</button>
+</h2>`;
                 if (wordData.cnMean?.length) {
-                    html += '<h3>中文释义：</h3><ul>';
+                    html += '<h3>中文释义: </h3><ul>';
                     const g = {};
                     wordData.cnMean.forEach(m => { const t = m.meanType || ''; if (!g[t]) g[t] = []; g[t].push(m); });
                     for (const [t, means] of Object.entries(g)) {
@@ -882,31 +915,31 @@
                     html += '</ul>';
                 }
                 if (wordData.mnemonic?.content) {
-                    html += '<h3>记忆：</h3><ul>';
+                    html += '<h3>记忆: </h3><ul>';
                     html += `<li>${wordData.mnemonic.content}</li>`;
                     html += '</ul>';
                 }
 
                 if (wordData.enMean?.length) {
-                    html += '<h3>英文释义：</h3><ul>';
+                    html += '<h3>英文释义: </h3><ul>';
                     wordData.enMean.forEach(m => html +=
                         `<li><strong>${m.meanType||''}</strong> ${m.mean||''}</li>`);
                     html += '</ul>';
                 }
                 if (wordData.phrases?.length) {
-                    html += '<h3>短语：</h3><ul>';
+                    html += '<h3>短语: </h3><ul>';
                     wordData.phrases.forEach(p => html +=
                         `<li><strong>${wrapWordsInString(p.phrase)}:</strong> ${p.mean||''}</li>`);
                     html += '</ul>';
                 }
                 if (wordData.variant?.length) {
-                    html += '<h3>变形：</h3><ul>';
+                    html += '<h3>变形: </h3><ul>';
                     wordData.variant.forEach(v => html +=
                         `<li><strong>${v.type}:</strong> ${wrapWordsInString(v.variant||'')}</li>`);
                     html += '</ul>';
                 }
                 if (wordData.similars?.length) {
-                    html += '<h3>易混词：</h3><ul>';
+                    html += '<h3>易混词: </h3><ul>';
                     wordData.similars.forEach(s => html +=
                         `<li><strong>${wrapWordsInString(s.word)}:</strong> ${s.meanType||''} ${s.mean||''}</li>`);
                     html += '</ul>';
@@ -926,6 +959,53 @@
                 html += '</div>';
                 return html;
             }
+async function bindDetailButtons(container) {
+    const db = await openDB();
+    
+    // 绑定播放按钮 —— 使用事件委托或逐个绑定
+    container.querySelectorAll('.play-audio-inline').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const word = btn.dataset.word;
+            if (word) await playWordAudio(word);
+        });
+    });
+
+    // 绑定收藏按钮，并设置初始状态
+    const favBtns = container.querySelectorAll('.fav-btn-inline');
+    for (const btn of favBtns) {
+        const word = btn.dataset.word;
+        const fav = await getFavourite(db, word);
+        const isFav = fav?.isFavourite || false;
+        btn.textContent = isFav ? '已收藏' : '收藏';
+        btn.classList.toggle('faved', isFav);
+        
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const db2 = await openDB();
+            let favData = await getFavourite(db2, word) || {
+                word,
+                isFavourite: false,
+                answerCount: 0, errorCount: 0,
+                dictationCount: 0, dictationErrorCount: 0,
+                lastLearnTime: null, lastReviewTime: null, lastDictationTime: null
+            };
+            favData.isFavourite = !favData.isFavourite;
+            await saveFavourite(db2, favData);
+            
+            btn.textContent = favData.isFavourite ? '已收藏' : '收藏';
+            btn.classList.toggle('faved', favData.isFavourite);
+            
+            // 如果当前学习单词恰好是这个，同步更新主页收藏按钮状态
+            if (currentWordList[currentIndex] === word) {
+                currentIsFavourite = favData.isFavourite;
+                updateFavouriteButton();
+            }
+            // 若收藏列表可见则刷新
+            if (currentView === 'home') renderErrorBook();
+        });
+    }
+}
 
             async function loadTextbookWordsFromFile(name) {
                 const resp = await fetch(`Books/${name}.txt`);
@@ -942,57 +1022,110 @@
                 return arr;
             }
 
-            async function buildReviewList(count, filter, sort) {
-                const db = await openDB();
-                let records = (await getAllFavourites(db)).filter(r => r.word && r.answerCount > 0);
-                if (filter !== '__all__') {
-                    const words = await loadTextbookWordsFromFile(filter);
-                    const set = new Set(words.map(w => w.toLowerCase()));
-                    records = records.filter(r => set.has(r.word.toLowerCase()));
-                }
-                if (!records.length) return [];
-                // 忽略排序，强制随机打乱
-                records = shuffleArray(records);
-                return records.slice(0, count).map(r => r.word);
-            }
+async function buildReviewList(count, filter, sort) {
+    const db = await openDB();
+    let records = (await getAllFavourites(db)).filter(r => r.word && r.answerCount > 0);
+    if (filter !== '__all__') {
+        const words = await loadTextbookWordsFromFile(filter);
+        const set = new Set(words.map(w => w.toLowerCase()));
+        records = records.filter(r => set.has(r.word.toLowerCase()));
+    }
+    if (!records.length) return [];
 
-            async function buildDictationList(count, filter, sort) {
-                const db = await openDB();
-                let records = (await getAllFavourites(db)).filter(r => r.word && r.answerCount > 0);
-                if (filter !== '__all__') {
-                    const words = await loadTextbookWordsFromFile(filter);
-                    const set = new Set(words.map(w => w.toLowerCase()));
-                    records = records.filter(r => set.has(r.word.toLowerCase()));
-                }
-                if (!records.length) return [];
-                // 忽略排序，强制随机打乱
-                records = shuffleArray(records);
-                return records.slice(0, count).map(r => r.word);
-            }
+    switch (sort) {
+        case 'earliest': 
+            records.sort((a, b) => (b.lastLearnTime || '').localeCompare(a.lastLearnTime || ''));
+            break;
+        case 'oldest':  
+            records.sort((a, b) => (a.lastLearnTime || '').localeCompare(b.lastLearnTime || ''));
+            break;
+        case 'mostErrors':
+            records.sort((a, b) => {
+                const rateA = a.answerCount > 0 ? (a.errorCount || 0) / a.answerCount : 0;
+                const rateB = b.answerCount > 0 ? (b.errorCount || 0) / b.answerCount : 0;
+                return rateB - rateA;
+            });
+            break;
+        case 'randFav':
+            records = records.filter(r => r.isFavourite);
+            records = shuffleArray(records);
+            break;
+        case 'random':
+        default:
+            records = shuffleArray(records);
+            break;
+    }    if (sort === 'earliest' || sort === 'oldest' || sort === 'mostErrors') {
+        records = shuffleArray(records.slice(0, count));
+        return records.map(r => r.word);
+    }
+    return records.slice(0, count).map(r => r.word);
+}
+async function buildDictationList(count, filter, sort) {
+    const db = await openDB();
+    let records = (await getAllFavourites(db)).filter(r => r.word && r.dictationCount > 0);
+    if (filter !== '__all__') {
+        const words = await loadTextbookWordsFromFile(filter);
+        const set = new Set(words.map(w => w.toLowerCase()));
+        records = records.filter(r => set.has(r.word.toLowerCase()));
+    }
+    if (!records.length) return [];
 
+    switch (sort) {
+        case 'earliest': 
+            records.sort((a, b) => (b.lastDictationTime || '').localeCompare(a.lastDictationTime || ''));
+            break;
+        case 'oldest': 
+            records.sort((a, b) => (a.lastDictationTime || '').localeCompare(b.lastDictationTime || ''));
+            break;
+        case 'mostErrors': 
+            records.sort((a, b) => {
+                const rateA = a.dictationCount > 0 ? (a.dictationErrorCount || 0) / a.dictationCount : 0;
+                const rateB = b.dictationCount > 0 ? (b.dictationErrorCount || 0) / b.dictationCount : 0;
+                return rateB - rateA;
+            });
+            break;
+        case 'randFav':
+            records = records.filter(r => r.isFavourite);
+            records = shuffleArray(records);
+            break;
+        case 'random':
+        default:
+            records = shuffleArray(records);
+            break;
+    }
+        if (sort === 'earliest' || sort === 'oldest' || sort === 'mostErrors') {
+        records = shuffleArray(records.slice(0, count));
+        return records.map(r => r.word);
+    }
+    return records.slice(0, count).map(r => r.word);
+}
             function getProgressKey() {
                 if (currentMode === 'learn') return `learn_${currentTextbookName}`;
-                if (currentMode === 'review') return reviewTextbookFilter === '__all__' ? 'review_all' :
-                    `review_${reviewTextbookFilter}`;
-                return dictationTextbookFilter === '__all__' ? 'dictation_all' : `dictation_${dictationTextbookFilter}`;
+                //if (currentMode === 'review') return reviewTextbookFilter === '__all__' ? 'review_all' :
+                //    `review_${reviewTextbookFilter}`;
+               // return dictationTextbookFilter === '__all__' ? 'dictation_all' : `dictation_${dictationTextbookFilter}`;
+           return null
             }
 
             async function displayCurrentWord() {
                 dictationSubmitted = false;
-                if (currentIndex >= currentWordList.length) {
-                    // 完成界面，提供重新开始按钮
-                    document.getElementById('wordDisplayBox').innerHTML = `
-                        <h2>${currentMode==='learn'?'学习':currentMode==='review'?'复习':'默写'}完成!</h2>
-                        <button id="restartBtn" style="margin-top:10px;">重新开始</button>
-                    `;
-                    document.getElementById('optionsArea').style.display = 'none';
-                    document.getElementById('resultArea').style.display = 'none';
-                    document.getElementById('progressInfo').textContent = '';
-                    document.getElementById('dictationHint').style.display = 'none';
-                    document.getElementById('restartBtn').addEventListener('click', () => startMode(currentMode));
-                    return;
-                }
-                const word = currentWordList[currentIndex];
+ if (currentIndex >= currentWordList.length) {
+    document.getElementById('currentWordSpan').style.display = 'none';
+    document.getElementById('playAudioBtn').style.display = 'none';
+    document.getElementById('favouriteBtn').style.display = 'none';
+    document.getElementById('wordAccent').style.display = 'none';
+    document.getElementById('dictationHint').style.display = 'none';
+    document.getElementById('wordImageContainer').style.display = 'none';
+    document.getElementById('exampleSentenceBox').style.display = 'none';
+    document.getElementById('optionsArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
+    document.getElementById('progressInfo').textContent = '';
+
+    const modeLabel = currentMode === 'learn' ? '学习' : currentMode === 'review' ? '复习' : '默写';
+    document.getElementById('completionTitle').textContent = `${modeLabel}完成！`;
+    document.getElementById('completionOverlay').style.display = 'block';
+    return;
+}                const word = currentWordList[currentIndex];
                 const db = await openDB();
                 currentWordData = await getWordResource(db, word);
                 if (!currentWordData) {
@@ -1006,7 +1139,7 @@
                 currentIsFavourite = fav ? fav.isFavourite : false;
                 updateFavouriteButton();
 
-                // 默写模式：显示中文提示和答案长度，隐藏单词
+                // 默写模式: 显示中文提示和答案长度, 隐藏单词
                 if (currentMode === 'dictation') {
                     document.getElementById('currentWordSpan').textContent = '???';
                     const firstMean = currentWordData.cnMean?.[0]?.mean || '无';
@@ -1021,20 +1154,29 @@
                     document.getElementById('wordAccent').style.display = '';
                     document.getElementById('dictationHint').style.display = 'none';
                 }
-
-                const imgContainer = document.getElementById('wordImageContainer');
-                imgContainer.innerHTML = '';
-                if (currentWordData.imgContent) {
-                    const blob = await loadImageFromZip(word, currentWordData.imgContent);
-                    if (blob) imgContainer.innerHTML =
-                        `<img class="word-img" src="${URL.createObjectURL(blob)}" style="max-width:200px;">`;
-                }
                 const example = getFirstExample(currentWordData.sentences);
                 const exampleBox = document.getElementById('exampleSentenceBox');
 
-                // 复习模式不展示例句和翻译
+                const imgContainer = document.getElementById('wordImageContainer');
+                imgContainer.innerHTML = '';
+                if (example.image) {
+                    let blob = null;
+                    try {
+                        blob = await loadImageFromZip(word, example.image);
+                    } catch (e) {
+                        console.warn('图片加载异常', e);
+                    }
+                    const imgContainer = document.getElementById('wordImageContainer');
+                    if (blob) {
+                        imgContainer.innerHTML = `<img class="word-img" src="${URL.createObjectURL(blob)}" style="max-height: 100px;">`;
+                    }else {
+                       imgContainer.innerHTML = '';
+                    }
+                }
+                // 复习模式不展示例句和翻译和图片
                 if (currentMode === 'review') {
                     exampleBox.innerHTML = '';
+                    imgContainer.innerHTML = '';
                 } else if (example) {
                     let sent = example.sentenceEn;
                     if (currentMode === 'dictation') {
@@ -1051,7 +1193,6 @@
                     if (currentMode === 'learn') {
                         // 学习模式不显示翻译
                     } else if (currentMode === 'dictation') {
-                        // 默写模式可以显示翻译，但复习模式已经隐藏，这里针对dictation显示翻译
                         exampleBox.innerHTML += `<p><strong>翻译: </strong>${example.translate||''}</p>`;
                     }
                     document.getElementById('playSentenceAudioBtn')?.addEventListener('click', () =>
@@ -1150,6 +1291,7 @@
                 }
                 detailsHTML += buildWordDetailsHTML(item.wordData);
                 document.getElementById('wordDetailsBox').innerHTML = detailsHTML;
+                bindDetailButtons(document.getElementById('wordDetailsBox'));
                 document.getElementById('resultArea').style.display = 'block';
                 document.getElementById('optionsArea').style.display = 'none';
                 updateHistoryNavButtons();
@@ -1200,6 +1342,15 @@
             }
 
             async function startMode(mode) {
+document.getElementById('completionOverlay').style.display = 'none';
+document.getElementById('currentWordSpan').style.display = '';
+document.getElementById('playAudioBtn').style.display = '';
+document.getElementById('favouriteBtn').style.display = '';
+document.getElementById('wordAccent').style.display = '';
+document.getElementById('wordImageContainer').style.display = '';
+document.getElementById('exampleSentenceBox').style.display = '';
+document.getElementById('optionsArea').style.display = 'block';
+document.getElementById('resultArea').style.display = 'none';
                 const db = await openDB();
                 // 重置所有进度和历史
                 historyList = [];
@@ -1228,7 +1379,7 @@
                         return;
                     }
                     currentIndex = 0;
-                    await saveProgress(db, getProgressKey(), 0);
+                   // await saveProgress(db, getProgressKey(), 0);
                 } else if (mode === 'dictation') {
                     const count = parseInt(document.getElementById('dictationCountInput').value) || 20;
                     dictationTextbookFilter = document.getElementById('dictationTextbookSelect').value;
@@ -1240,7 +1391,7 @@
                         return;
                     }
                     currentIndex = 0;
-                    await saveProgress(db, getProgressKey(), 0);
+                   // await saveProgress(db, getProgressKey(), 0);
                 }
                 currentMode = mode;
                 document.getElementById('reviewEmptyMsg').style.display = 'none';
@@ -1298,6 +1449,7 @@
                                 const wd = wordDataMap[word] || await getWordResource(await openDB(),
                                     word);
                                 detailDiv.innerHTML = wd ? buildWordDetailsHTML(wd) : '<p>无详情</p>';
+                                if (wd) bindDetailButtons(detailDiv);
                             }
                             detailDiv.classList.add('show');
                         }
@@ -1424,10 +1576,11 @@
             function showWordDetailModal(wordData) {
                 const modal = document.getElementById('wordDetailModal');
                 document.getElementById('wordDetailInner').innerHTML = buildWordDetailsHTML(wordData);
+                bindDetailButtons(document.getElementById('wordDetailInner'));
                 modal.style.display = 'flex';
             }
 
-            // 全局点击处理：划词翻译 + 隐藏悬浮窗
+            // 全局点击处理: 划词翻译 + 隐藏悬浮窗
             document.addEventListener('click', async (e) => {
                 const wordSpan = e.target.closest('.word-clickable');
                 if (wordSpan) {
@@ -1550,6 +1703,9 @@
             });
 
             window.addEventListener('DOMContentLoaded', async () => {
+ document.getElementById('restartBtn').addEventListener('click', () => {
+    startMode(currentMode);
+});
                 initTextbookDropdowns();
                 loadSettings();
                 if (localStorage.ON_MyWords_Bank != "1") { await importWordsBank(); }
@@ -1557,6 +1713,25 @@
                 updateModeButtons();
             });
         })();
+        if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/MyWords/sw.js', { scope: '/MyWords/' })
+      .then(registration => {
+        console.log('[SW] 注册成功作用域:', registration.scope);
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[SW] 有新内容可用刷新页面');
+            }
+          });
+        });
+      })
+      .catch(err => {
+        console.log('[SW] 注册失败:', err);
+      });
+  });
+}
     </script>
 </body>
 </html>
