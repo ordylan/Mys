@@ -552,13 +552,19 @@ html, body {
     <div id="wordTooltip" class="word-tooltip" style="display: none;"></div>
 
     <script>
+        //已有一个缓存 但在网络过差 或者答题过快时(例如一秒2题 fast4g网络 也会卡顿  导致例句图片是前几题的)
+        //or 一秒3题 网稍微慢一些  甚至可能卡变量  系统不然下一题  也不修复
+        //异步竞争暂不修复
         (function() {
             const DB_NAME = 'MyWords';
             const WORD_STORE = 'wordResources';
             const FAVOURITE_STORE = 'Favourite';
             const PROGRESS_STORE = 'Progress';
             const VERSION = 1;
-
+                const MAX_ZIP_CACHE = 5;
+                const PREFETCH_COUNT = 2;
+                const zipCache = new Map();
+                const pendingLoads = new Map();
             function openDB() {
                 return new Promise((resolve, reject) => {
                     const req = indexedDB.open(DB_NAME, VERSION);
@@ -809,16 +815,45 @@ function getWordResource(db, word) {
                 while (options.length < 4) options.push({ text: 'Unknown', isCorrect: false });
                 return options.sort(() => Math.random() - 0.5);
             }
-
 async function loadZipForWord(word) {
-    try {
-        const resp = await fetch(`Words/${word}.zip`);
-        if (!resp.ok) return null;
-        const zipData = await resp.arrayBuffer();
-        return await JSZip.loadAsync(zipData);
-    } catch (err) {
-        console.warn('加载单词资源包失败:', word, err);
-        return null;
+    if (pendingLoads.has(word)) {
+        return pendingLoads.get(word);
+    }
+    if (zipCache.has(word)) {
+        const cached = zipCache.get(word);
+        zipCache.delete(word);
+        zipCache.set(word, cached);
+        return cached;
+    }
+    const loadPromise = (async () => {
+        try {
+            const resp = await fetch(`Words/${word}.zip`);
+            if (!resp.ok) return null;
+            const zipData = await resp.arrayBuffer();
+            const zip = await JSZip.loadAsync(zipData);
+            zipCache.set(word, zip);
+            if (zipCache.size > MAX_ZIP_CACHE) {
+                const oldestKey = zipCache.keys().next().value;
+                zipCache.delete(oldestKey);
+            }
+            return zip;
+        } catch (err) {
+            console.warn('加载单词资源包失败:', word, err);
+            return null;
+        } finally {
+            pendingLoads.delete(word);
+        }
+    })();
+
+    pendingLoads.set(word, loadPromise);
+    return loadPromise;
+}
+function prefetchZips(wordList, startIndex, count) {
+    const end = Math.min(startIndex + count, wordList.length);
+    for (let i = startIndex; i < end; i++) {
+        const word = wordList[i];
+        // fire and forget，触发缓存加载但不等待
+        loadZipForWord(word).catch(() => {});
     }
 }
             async function extractResourceFromWordZip(word, path) {
@@ -1128,6 +1163,8 @@ async function buildDictationList(count, filter, sort) {
 
             async function displayCurrentWord() {
                 document.getElementById('wordDisplayBox').style.display = '';
+                
+    isTransitioning = false;
                 dictationSubmitted = false;
  if (currentIndex >= currentWordList.length) {
     document.getElementById('currentWordSpan').style.display = 'none';
@@ -1205,19 +1242,16 @@ async function buildDictationList(count, filter, sort) {
 updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/10);
                 const imgContainer = document.getElementById('wordImageContainer');
                 imgContainer.innerHTML = '';
-                if (example.image) {
-                    let blob = null;
-                    try {
-                        blob = await loadImageFromZip(word, example.image);
-                    } catch (e) {
-                        console.warn('图片加载异常', e);
-                    }
-                    const imgContainer = document.getElementById('wordImageContainer');
-                    if (blob) {
-                        imgContainer.innerHTML = `<img class="word-img" src="${URL.createObjectURL(blob)}" style="max-height: 100px;z-index:0; position: relative;">`;
-                    }else {
-                       imgContainer.innerHTML = '';
-                    }
+                if (example.image) {//还是不await了 网慢时堵ui
+     loadImageFromZip(word, example.image)
+        .then(blob => {
+                document.getElementById('wordImageContainer').innerHTML = blob
+                    ? `<img class="word-img" src="${URL.createObjectURL(blob)}"  style="max-height: 100px;z-index:0; position: relative;">`
+                    : '';
+        })
+        .catch(e => {console.warn('图片加载异常', e);
+        imgContainer.innerHTML = '';
+                 } );
                 }
                 // 复习模式不展示例句和翻译和图片
                 if (currentMode === 'review') {
@@ -1244,14 +1278,20 @@ updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/
                     document.getElementById('playSentenceAudioBtn')?.addEventListener('click', () =>
                         playSentenceAudio(example));
                     if (audioEnabled && example.audio && currentMode !== 'dictation' && currentMode !== 'review') setTimeout(() =>
-                        playSentenceAudio(example), 500);
+                        playSentenceAudio(example), 300);
                 } else {
                     exampleBox.innerHTML = '<p>暂无例句</p>';
                 }
+if (currentIndex + 1 < currentWordList.length) {
+    setTimeout(() => {
+        prefetchZips(currentWordList, currentIndex + 1, PREFETCH_COUNT);
+    }, 100);
+}
             }
 
             async function handleOptionClick(e) {
                 const isCorrect = e.target.dataset.correct === 'true';
+                isTransitioning = true;
                 const word = currentWordList[currentIndex];
                 const db = await openDB();
                 let fav = await getFavourite(db, word) || { word, isFavourite: false, answerCount: 0, errorCount: 0,
@@ -1278,6 +1318,7 @@ updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/
             currentWordList.splice(insertPos, 0, wrongWord);
             reviewShouldAdvance = false;
         }
+        
     }
                 document.querySelectorAll('.option-btn').forEach(b => {
                     b.disabled = true;
@@ -1294,6 +1335,7 @@ updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/
                 if (dictationSubmitted) return;
                 const input = document.getElementById('dictationInput').value.trim();
                 if (!input) return;
+                isTransitioning = true;
                 const word = currentWordList[currentIndex];
                 const isCorrect = input.toLowerCase() === word.toLowerCase();
                 const db = await openDB();
@@ -1321,6 +1363,7 @@ updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/
                 historyList.push({ word, isCorrect, userInput: input, wordData: currentWordData });
                 historyViewIndex = historyList.length - 1;
                 showHistoryResult(historyViewIndex);
+                
             }
 
             function showHistoryResult(index) {
@@ -1354,8 +1397,7 @@ updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/
             }
 
  async function goNextWord() {
-    if (isTransitioning) return; 
-    isTransitioning = true;
+    if (!isTransitioning) return;
     try {
         if (currentMode === 'dictation' && !dictationSubmitted) {
             const inp = document.getElementById('dictationInput').value.trim();
@@ -1798,7 +1840,7 @@ document.getElementById('modeDictationBtn').addEventListener('click', () => {
           const newWorker = registration.installing;
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[SW] 有新内容可用刷新页面');
+              alert('[SW] 有新内容可用刷新页面');
             }
           });
         });
