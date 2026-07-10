@@ -414,8 +414,10 @@
         }
     </style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="favicon.ico "  type="image/x-icon">
-
+  <meta name="theme-color" content="#E6E6E6">
+<link rel="shortcut icon" href="favicon.ico" type="image/vnd.microsoft.icon">
+<link rel="icon" href="favicon.ico" type="image/vnd.microsoft.icon">
+<link rel="manifest" href="manifest.json">
     <div id="progressBar" style="width: 0%; z-index: 1000">
         <div id="progressBackground"></div>
         <div id="progressSolid"></div>
@@ -452,12 +454,12 @@
                     <select id="reviewTextbookSelect">
                         <option value="__all__">全部(All)</option>
                     </select>
-                    <label>排序: </label>
+                    <label>复习: </label>
                     <select id="reviewSortSelect">
                         <option value="random">随机</option>
-                        <option value="earliest">最新优先(刚学完复习)</option>
-                        <option value="oldest">最旧优先(最久未复习)</option>
-                        <option value="mostErrors">最错优先(错误率最高)</option> <option value="randFav">收藏随机</option>
+                        <option value="earliest">最新(刚学完复习)</option>
+                        <option value="oldest">最旧(最久未复习)</option>
+                        <option value="mostErrors">最错(错误率最高)</option> <option value="randFav">收藏随机</option>
                     </select>
                     <label>数量: </label>
                     <input type="number" id="reviewCountInput" value="20" min="5" max="200">
@@ -469,12 +471,12 @@
                     <select id="dictationTextbookSelect">
                         <option value="__all__">全部(All)</option>
                     </select>
-                    <label>排序: </label>
+                    <label>默写: </label>
                     <select id="dictationSortSelect">
                         <option value="random">随机</option>
-                        <option value="earliest">最新优先(刚学完复习)</option>
-                        <option value="oldest">最旧优先(最久未复习)</option>
-                        <option value="mostErrors">最错优先(错误率最高)</option> <option value="randFav">收藏随机</option>
+                        <option value="earliest">最新(刚学完复习)</option>
+                        <option value="oldest">最旧(最久未复习)</option>
+                        <option value="mostErrors">最错(错误率最高)</option> <option value="randFav">收藏随机</option>
                     </select>
                     <label>数量: </label>
                     <input type="number" id="dictationCountInput" value="20" min="5" max="200">
@@ -761,11 +763,14 @@
                 currentTextbookName = '',
                 currentMode = 'learn';
             let dictationSubmitted = false;
+            let reviewShouldAdvance = true; 
+            let dictationNeedsAdvance = true;
             let reviewTextbookFilter = '__all__',
                 reviewSortMode = 'random';
             let dictationTextbookFilter = '__all__',
                 dictationSortMode = 'random';
             let currentView = 'home';
+            let isTransitioning = false;
 
             // 历史回顾相关
             let historyList = []; // { word, isCorrect, userInput, wordData }
@@ -1245,6 +1250,21 @@ async function buildDictationList(count, filter, sort) {
                 else if (currentMode === 'review') fav.lastReviewTime = now;
                 await saveFavourite(db, fav);
                 await saveProgress(db, getProgressKey(), currentIndex);
+                 
+    if (currentMode === 'review') {
+                      if (isCorrect) {
+            reviewShouldAdvance = true;
+        } else {
+            const wrongWord = currentWordList.splice(currentIndex, 1)[0]; 
+            const interval = Math.floor(Math.random() * 5) + 4; 
+            let insertPos = currentIndex + interval;
+            if (insertPos > currentWordList.length) {
+                insertPos = currentWordList.length;  
+            }
+            currentWordList.splice(insertPos, 0, wrongWord);
+            reviewShouldAdvance = false;
+        }
+    }
                 document.querySelectorAll('.option-btn').forEach(b => {
                     b.disabled = true;
                     if (b.dataset.correct === 'true') b.classList.add('correct-pick');
@@ -1271,6 +1291,18 @@ async function buildDictationList(count, filter, sort) {
                 fav.lastDictationTime = new Date().toISOString();
                 await saveFavourite(db, fav);
                 await saveProgress(db, getProgressKey(), currentIndex);
+    if (isCorrect) {
+        dictationNeedsAdvance = true;
+    } else {
+        const wrongWord = currentWordList.splice(currentIndex, 1)[0];
+        const interval = Math.floor(Math.random() * 5) + 4;
+        let insertPos = currentIndex + interval;
+        if (insertPos > currentWordList.length) {
+            insertPos = currentWordList.length;
+        }
+        currentWordList.splice(insertPos, 0, wrongWord);
+        dictationNeedsAdvance = false;
+    }
                 dictationSubmitted = true;
                 historyList.push({ word, isCorrect, userInput: input, wordData: currentWordData });
                 historyViewIndex = historyList.length - 1;
@@ -1305,19 +1337,32 @@ async function buildDictationList(count, filter, sort) {
                 nextBtn.disabled = historyViewIndex >= historyList.length - 1;
             }
 
-            async function goNextWord() {
-                if (currentMode === 'dictation' && !dictationSubmitted) {
-                    const inp = document.getElementById('dictationInput').value.trim();
-                    if (inp) {
-                        await handleDictationSubmit();
-                        return;
-                    }
-                }
-                currentIndex++;
-                await saveProgress(await openDB(), getProgressKey(), currentIndex);
-                await displayCurrentWord();
+ async function goNextWord() {
+    if (isTransitioning) return; 
+    isTransitioning = true;
+    try {
+        if (currentMode === 'dictation' && !dictationSubmitted) {
+            const inp = document.getElementById('dictationInput').value.trim();
+            if (inp) {
+                await handleDictationSubmit();
+                return;
             }
-
+        }
+        if (currentMode === 'review') {
+            if (reviewShouldAdvance) currentIndex++;
+            reviewShouldAdvance = true;
+        } else if (currentMode === 'dictation') {
+            if (dictationNeedsAdvance) currentIndex++;
+            dictationNeedsAdvance = true;
+        } else {
+            currentIndex++;
+        }
+        await saveProgress(await openDB(), getProgressKey(), currentIndex);
+        await displayCurrentWord();
+    } finally {
+        isTransitioning = false;
+    }
+}
             function switchView(view) {
                 currentView = view;
                 document.getElementById('homeView').style.display = view === 'home' ? 'block' : 'none';
@@ -1359,6 +1404,8 @@ document.getElementById('resultArea').style.display = 'none';
                 currentWordList = [];
                 currentIndex = 0;
                 currentWordData = null;
+                reviewShouldAdvance = true;
+                dictationNeedsAdvance = true;
                 if (mode === 'learn') {
                     if (!currentTextbookName) {
                         document.getElementById('statusMsg').innerHTML =
