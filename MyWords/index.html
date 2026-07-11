@@ -534,7 +534,7 @@ html, body {
             <label><input type="checkbox" id="settingAudio" checked>启用音频</label><br><br>
             <label>复习默认数量: <input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
             <label>默写默认数量: <input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
-            <button onclick="if(confirm('会刷新页面!继续?')){localStorage.ON_MyWords_Bank=0;location.reload();}">[重载词库]</button><br><br>
+            <button onclick="if(confirm('会刷新页面!继续?且需联网!')){localStorage.ON_MyWords_Bank=0;location.reload();}">[重载词库]</button><br><br>
             <button id="saveSettingsBtn">Save</button>
             <button id="closeSettingsBtn">Cancel</button>
         </div>
@@ -1242,7 +1242,7 @@ async function buildDictationList(count, filter, sort) {
 updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/10);
                 const imgContainer = document.getElementById('wordImageContainer');
                 imgContainer.innerHTML = '';
-                if (example.image) {//还是不await了 网慢时堵ui
+                if (example.image && currentMode !== 'review') {//还是不await了 网慢时堵ui
      loadImageFromZip(word, example.image)
         .then(blob => {
                 document.getElementById('wordImageContainer').innerHTML = blob
@@ -1840,7 +1840,7 @@ document.getElementById('modeDictationBtn').addEventListener('click', () => {
           const newWorker = registration.installing;
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              alert('[SW] 有新内容可用刷新页面');
+              console.log('[SW] 有新内容可用刷新页面');
             }
           });
         });

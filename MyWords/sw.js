@@ -1,5 +1,5 @@
-// sw.js
-const CACHE_NAME = 'MyWords_1.1'; 
+const STATIC_CACHE = 'MyWords_1.6';
+const ZIP_CACHE = 'MyWords_Data_1';
 
 const PRECACHE_URLS = [
   './',
@@ -7,7 +7,9 @@ const PRECACHE_URLS = [
   'Books/SiJiGaoPin.txt',
   'Books/SiJi.txt',
   'Books/LiuXiaoYanSiJi.txt',
-  'Books/LiuJi.txt','manifest.json','favicon.ico','favicon.png'
+  'Books/LiuJi.txt',
+  'manifest.json',
+  'favicon.ico','favicon.png'
 ];
 
 const NETWORK_ONLY_URL = 'WordsBank.json';
@@ -18,8 +20,8 @@ function isWordZip(url) {
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('[SW] 预缓存资源');
+    caches.open(STATIC_CACHE).then(cache => {
+      console.log('[SW] 预缓存静态资源');
       return cache.addAll(PRECACHE_URLS);
     }).then(() => self.skipWaiting())
   );
@@ -29,7 +31,8 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.filter(name => name !== CACHE_NAME)
+        cacheNames
+          .filter(name => name !== STATIC_CACHE && name !== ZIP_CACHE)  // 保留 ZIP 缓存
           .map(name => {
             console.log('[SW] 删除旧缓存:', name);
             return caches.delete(name);
@@ -42,6 +45,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
+  // WordsBank.json 强制走网络，不缓存
   if (url.pathname.endsWith(NETWORK_ONLY_URL)) {
     event.respondWith(fetch(event.request));
     return;
@@ -49,11 +53,11 @@ self.addEventListener('fetch', event => {
 
   if (isWordZip(url)) {
     event.respondWith(
-      caches.match(event.request).then(cached => {
+      caches.match(event.request, { cacheName: ZIP_CACHE }).then(cached => {
         const networkFetch = fetch(event.request).then(response => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
-            caches.open(CACHE_NAME).then(cache => {
+            caches.open(ZIP_CACHE).then(cache => {
               cache.put(event.request, responseClone);
             });
           }
@@ -66,7 +70,7 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
+    caches.match(event.request, { cacheName: STATIC_CACHE }).then(cached => {
       return cached || fetch(event.request);
     })
   );
