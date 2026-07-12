@@ -128,13 +128,8 @@ table.tasks-table th {
 }
 
 
-
-
-
-
-
-
 </style>
+<script src="api/sync.js"></script>
 </head>
 <body>
   <div class="container">
@@ -170,7 +165,7 @@ table.tasks-table th {
 
 
     <div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px">
-  <h3>Tasks for the Day <button id="toggleEditTasksBtn" class="small" style="margin-left:8px">Edit</button></h3>
+  <h3>Tasks for the Day <button id="toggleEditTasksBtn" class="small" style="margin-left:8px">Edit</button><button id="SYNCDO" class="small" title="Sync Tasks" style="margin-left: 8px; background: rgb(255, 111, 0); color: rgb(82, 201, 252);">Sync!</button></h3>
       <div id="tasksList"></div>
     </div>
 
@@ -238,62 +233,12 @@ table.tasks-table th {
     </div>
   </div>
 <!--<input type="checkbox" id="aaaaaa"> 自动跳转桌面版-->
-  <script>
-  (function checkDbBeforeLoad() {
-    const DB_NAME = 'MyKPs';
-    const REQUIRED_VERSION = 3;
-    const openReq = indexedDB.open(DB_NAME, REQUIRED_VERSION);
 
-    openReq.onsuccess = function(e) {
-      const db = e.target.result;
-      let isValid = true;
-      if (db.version !== REQUIRED_VERSION) {
-        isValid = false;
-      } else {
-        // 检查必要的对象存储是否存在
-        const requiredStores = ['KPs', 'MyLearningLogs', 'AppConfig'];
-        for (let store of requiredStores) {
-          if (!db.objectStoreNames.contains(store)) {
-            isValid = false;
-            break;
-          }
-        }
-      }
-      db.close();
-
-      if (!isValid) {
-        alert('数据库版本不正确或缺少必要存储，请先访问 KPs 主页面 (index.html) 完成初始化！');
-        // 禁用页面主要功能（可选）
-        const container = document.querySelector('.container');
-        if (container) {
-          const errorDiv = document.createElement('div');
-          errorDiv.style.color = 'red';
-          errorDiv.style.padding = '20px';
-          errorDiv.style.border = '1px solid red';
-          errorDiv.style.marginTop = '20px';
-          errorDiv.innerHTML = '<strong>错误：数据库未初始化。</strong> 请先打开 <a href="/MyKPs/">KPs 主页面</a> 完成设置后再使用此页面。';
-          container.prepend(errorDiv);
-        }
-        // 抛出全局标志，让 daily-plans.js 跳过执行
-        window.__kpDbInvalid = true;
-      } else {
-        window.__kpDbInvalid = false;
-      }
-    };
-
-    openReq.onerror = function(e) {
-      console.error('打开数据库失败', e);
-      alert('无法连接数据库，请确保已通过 KPs 主页面初始化数据！');
-      window.__kpDbInvalid = true;
-    };
-  })();
-</script>
   <script src="daily-plans.js"></script>
-    <script src="landscape.js"></script>
-    <script>
+    <script src="landscape.js"></script><script>
                        if ('serviceWorker' in navigator) {
                     window.addEventListener('load', () => {
-                        navigator.serviceWorker.register('/MyKPs/kps-sw.js')
+                        navigator.serviceWorker.register('/MyKPs/kps-sw.js', { scope: '/MyKPs/' })
                             .then(registration => {
                                 console.log('SW registered: ', registration);
                             })
@@ -301,8 +246,7 @@ table.tasks-table th {
                                 console.log('SW registration failed: ', registrationError);
                             });
                     });
-                }
-                </script>
+                }</script>
               <script>
 /*
 

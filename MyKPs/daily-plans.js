@@ -8,7 +8,7 @@
   const FLAWLESS_STORE = 'Flawless';
   const CONFIG_STORE = 'AppConfig'; // 主页面配置
 
-  const ID_EPOCH = new Date('2016-06-01T00:00:00Z').getTime();
+ const ID_EPOCH = new Date('2016-06-01T00:00:00Z').getTime();
  // let lastId = 0; // 用于防重
 
 function generateId(externalDate) {
@@ -89,90 +89,42 @@ function generateId(externalDate) {
   // ==================== 打开数据库 ====================
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
       const db = e.target.result;
-      // 创建所有必需的存储（兼容升级场景）
-      if (!db.objectStoreNames.contains(KPS_STORE)) {
-        const store = db.createObjectStore(KPS_STORE, { keyPath: 'uniqueId' });
-        store.createIndex('subject', 'subject', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(LOGS_STORE)) {
-        const store = db.createObjectStore(LOGS_STORE, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('KPsId', 'KPsId', { unique: false });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(CONFIG_STORE)) {
-        db.createObjectStore(CONFIG_STORE, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(DAILY_STORE)) {
-        const store = db.createObjectStore(DAILY_STORE, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('date', 'date', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(ANNOUNCEMENTS_STORE)) {
-        const store = db.createObjectStore(ANNOUNCEMENTS_STORE, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('pinnedAt', 'pinnedAt', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(FLAWLESS_STORE)) {
-        const store = db.createObjectStore(FLAWLESS_STORE, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('date', 'date', { unique: true });
+      const stores = {
+        KPs: { keyPath: 'uniqueId', indexes: [{ name: 'subject', keyPath: 'subject' }] },
+        MyLearningLogs: { keyPath: 'id', autoIncrement: true, indexes: [{ name: 'KPsId', keyPath: 'KPsId' }, { name: 'timestamp', keyPath: 'timestamp' }] },
+        AppConfig: { keyPath: 'id' },
+        DailyPlans: { keyPath: 'id', autoIncrement: true, indexes: [{ name: 'date', keyPath: 'date' }] },
+        Announcements: { keyPath: 'id', autoIncrement: true, indexes: [{ name: 'pinnedAt', keyPath: 'pinnedAt' }] },
+        Flawless: { keyPath: 'id', autoIncrement: true, indexes: [{ name: 'date', keyPath: 'date', unique: true }] },
+      };
+      for (const [name, config] of Object.entries(stores)) {
+        if (!db.objectStoreNames.contains(name)) {
+          const store = db.createObjectStore(name, { keyPath: config.keyPath, autoIncrement: config.autoIncrement || false });
+          if (config.indexes) {
+            config.indexes.forEach(idx => {
+              store.createIndex(idx.name, idx.keyPath, { unique: idx.unique || false });
+            });
+          }
+        }
       }
     };
-    req.onsuccess = (e) => {
-      db = e.target.result;
-      // 检查所有必需存储是否存在，若缺失则自动升级
-      const requiredStores = [
-        KPS_STORE, LOGS_STORE, CONFIG_STORE,
-        DAILY_STORE, ANNOUNCEMENTS_STORE, FLAWLESS_STORE
-      ];
-      const missing = requiredStores.filter(name => !db.objectStoreNames.contains(name));
-      if (missing.length === 0) {
-        resolve(db);
-      } else {
-        // 需要补建缺失的存储
-        const currentVersion = db.version;
-        db.close();
-        const upgradeReq = indexedDB.open(DB_NAME, currentVersion + 1);
-        upgradeReq.onupgradeneeded = (ev) => {
-          const upDB = ev.target.result;
-          if (!upDB.objectStoreNames.contains(DAILY_STORE)) {
-            const store = upDB.createObjectStore(DAILY_STORE, { keyPath: 'id', autoIncrement: true });
-            store.createIndex('date', 'date', { unique: false });
-          }
-          if (!upDB.objectStoreNames.contains(ANNOUNCEMENTS_STORE)) {
-            const store = upDB.createObjectStore(ANNOUNCEMENTS_STORE, { keyPath: 'id', autoIncrement: true });
-            store.createIndex('pinnedAt', 'pinnedAt', { unique: false });
-          }
-          if (!upDB.objectStoreNames.contains(FLAWLESS_STORE)) {
-            const store = upDB.createObjectStore(FLAWLESS_STORE, { keyPath: 'id', autoIncrement: true });
-            store.createIndex('date', 'date', { unique: true });
-          }
-          if (!upDB.objectStoreNames.contains(KPS_STORE)) {
-            const store = upDB.createObjectStore(KPS_STORE, { keyPath: 'uniqueId' });
-            store.createIndex('subject', 'subject', { unique: false });
-          }
-          if (!upDB.objectStoreNames.contains(LOGS_STORE)) {
-            const store = upDB.createObjectStore(LOGS_STORE, { keyPath: 'id', autoIncrement: true });
-            store.createIndex('KPsId', 'KPsId', { unique: false });
-            store.createIndex('timestamp', 'timestamp', { unique: false });
-          }
-          if (!upDB.objectStoreNames.contains(CONFIG_STORE)) {
-            upDB.createObjectStore(CONFIG_STORE, { keyPath: 'id' });
-          }
-        };
-        upgradeReq.onsuccess = (ev) => {
-          db = ev.target.result;
-          resolve(db);
-        };
-        upgradeReq.onerror = (ev) => reject(ev.target.error);
-      }
-    };
-    req.onerror = (e) => reject(e.target.error);
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
   });
 }
   // ==================== 读取 AppConfig ====================
   async function loadAppConfig() {
-    if (!db.objectStoreNames.contains(CONFIG_STORE)) return null;
+      if (!db) {
+    db = await openDB(); 
+  }
+    if (!db.objectStoreNames.contains(CONFIG_STORE)) return [{id: 'main', subjects: [{
+                        key: 'mysubject',
+                        displayName: 'Go to "Manage Subjects" to get started! ',
+                        kps: []
+                    }]}];
     const tx = db.transaction([CONFIG_STORE], 'readonly');
     const store = tx.objectStore(CONFIG_STORE);
     const config = await new Promise((res, rej) => {
@@ -261,7 +213,7 @@ function openDB() {
       return;
     }
 
-    const orderedTopicIds = subject.kps.map(t => t.id);
+    const orderedTopicIds = subject.kps; 
     const frag = document.createDocumentFragment();
     frag.appendChild(defaultOpt);
 
@@ -350,7 +302,8 @@ function openDB() {
       content: content || null,
       kpsId: kpsId,
       status: null,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      statusUpdatedAt: new Date().toISOString()
     };
 
     try {
@@ -358,7 +311,6 @@ function openDB() {
       const store = tx.objectStore(DAILY_STORE);
       if (editingItemId !== null) {
         item.id = editingItemId;
-        item.updatedAt = new Date().toISOString();
         const req = store.put(item);
         await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
         editingItemId = null;
@@ -1659,7 +1611,8 @@ for (const it of items) {
   item.tag = newTag.trim()||null;
   item.content = newContent.trim()||null;
   item.kpsId = newKps.trim()||null;
-    item.updatedAt = new Date().toISOString();
+  item.statusUpdatedAt = new Date().toISOString();
+   // item.updatedAt = new Date().toISOString();
     try{
   const tx = db.transaction([DAILY_STORE],'readwrite');
       const store = tx.objectStore(DAILY_STORE);
@@ -1850,7 +1803,8 @@ for (const it of items) {
   }
 
   // Show a modal with a random unfinished task (status === null). If none on any date, show message.
-  async function showRandomUnfinishedTask(){
+  async function showRandomUnfinishedTask(t,c,c2){
+        const aaa = (t !== undefined &&c !== undefined);
     ensureRandomModalStyle();
     try{
       const tx = db.transaction([DAILY_STORE],'readonly');
@@ -1868,6 +1822,11 @@ for (const it of items) {
       const title = document.createElement('h4'); title.textContent = 'Random task'; modal.appendChild(title);
       const meta = document.createElement('div'); meta.className = 'kp-random-meta';
       const content = document.createElement('div'); content.className = 'kp-random-content';
+             if (aaa) {
+            title.textContent = t;
+            content.innerHTML = c;
+            meta.innerHTML = c2;
+        } else {
       let pick = null;
       if(!pool || pool.length===0){ meta.textContent = ''; content.textContent = 'No unfinished tasks for the selected date.'; }
       else{
@@ -1878,7 +1837,7 @@ for (const it of items) {
         else if(kpName){ content.textContent = `[${kpName}]`; }
         else if(pick.content){ content.textContent = pick.content; }
         else content.textContent = '>>Unnamed task<<';
-      }
+      }}
       modal.appendChild(meta); modal.appendChild(content);
       const actions = document.createElement('div'); actions.className = 'kp-random-actions';
       const close = document.createElement('button'); close.className = 'kp-random-close'; close.textContent = 'Close';
@@ -2115,6 +2074,27 @@ for (const it of items) {
             }
             try { await loadFlawlessForDate(planDate.value); } catch (e) {}
         });
+
+const syncBtn = document.getElementById('SYNCDO');
+if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+        syncBtn.disabled = true;
+        syncBtn.textContent = 'Syncing...';
+         showRandomUnfinishedTask('SyncConsole', '<div id="SyncConsoleSingal"></div><div id="SyncConsole"></div>','记得登录后才能同步 go to <a href="/MyKPs/api/DoLogin.html">Login</a>');
+sync().then(result => {
+  const aa=document.getElementById("SyncConsoleSingal")
+  if(aa) aa.innerHTML="Success, 记得 <a onclick='window.location.reload()'>Refresh this page!</a>" + result.aa;
+  console.log('同步结果', result);
+  syncBtn.textContent="Sync";
+  syncBtn.disabled=false;
+}).catch(err => {
+    syncBtn.textContent="Sync";
+  syncBtn.disabled=false;
+  console.log(err);
+  alert('同步出错', err.message);
+});  
+    });
+}
 
     } catch (err) {
         console.error('Initialization failed', err);

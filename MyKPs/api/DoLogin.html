@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>MyKPs - Login</title>
+</head>
+<body>
+    <a href="../ToDos.php">[Back]</a>
+    <h2>注册</h2>注意 密码不能设置为0
+    <form id="registerForm">
+        <input type="text" id="regUsername" placeholder="用户名" required>
+        <input type="password" id="regPassword" placeholder="密码" required>
+        <input type="password" id="regConfirm" placeholder="确认密码" required>
+        <button type="submit">注册</button>
+    </form>
+    <pre id="regResult"></pre>
+
+    <hr>
+    <h2>登录</h2>
+    <form id="loginForm">
+        <input type="text" id="loginUsername" placeholder="用户名" required>
+        <input type="password" id="loginPassword" placeholder="密码" required>
+        <button type="submit">登录</button>
+    </form>
+    <pre id="loginResult"></pre>
+
+    <hr>
+
+        <button id="btnPost">点击立刻同步啊</button>
+    <pre id="apiResult"></pre>
+<div id="SyncConsoleSingal"></div>
+    <div id="SyncConsole"></div>
+
+<script src="sync.js"></script>
+    <script>
+        function apiRequestt(url, data) {
+            const token = localStorage.getItem('ON_MyKPs_Token');
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers['Authorization'] = 'KaoYanBiSheng ' + token;
+            }
+            return fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(data)
+            }).then(res => res.json());
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirm').value;
+            if (password !== confirm) {
+                document.getElementById('regResult').textContent = '密码不一致';
+                return;
+            }
+            apiRequestt('register.php', { username, password })
+                .then(data => {
+                    document.getElementById('regResult').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(err => {
+                    document.getElementById('regResult').textContent = '错误: ' + err.message;
+                });
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            apiRequestt('login.php', { username, password })
+                .then(data => {
+                    document.getElementById('loginResult').textContent = JSON.stringify(data, null, 2);
+                    if (data.token) {
+                        localStorage.setItem('ON_MyKPs_Token', data.token);
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('loginResult').textContent = '错误: ' + err.message;
+                });
+        });
+
+        document.getElementById('btnPost').addEventListener('click', function() {
+sync().then(result => {
+    console.log('同步成功，下载', result.downloaded, '上传', result.uploaded);
+}).catch(err => {
+    console.error('同步失败:', err);
+    alert('同步出错');
+});
+        });
+    </script>
+</body>
+</html>

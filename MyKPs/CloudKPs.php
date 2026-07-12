@@ -1,3 +1,0 @@
-<?php
-// Finish it yourself.
-?>
