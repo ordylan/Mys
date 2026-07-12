@@ -10,6 +10,8 @@
 
 **此项目初始化有问题, 暂时不修复(因为我已有数据,不影响我使用), 相信想用这个项目的人一定有能力解决! 记得给我PR!**  
 
+2026年7月12日补充: 最近几天修复了许多bug, 云存档也加上了! 呃, 就这样吧!  
+
 <img width="2040" height="1412" alt="MyKPs1" src="https://github.com/user-attachments/assets/ab5f99c5-2705-4085-8a7c-12d3c9ef74f1" />
 <img width="2303" height="1422" alt="MyKPs2" src="https://github.com/user-attachments/assets/5aaab2c5-6b94-4465-bee5-403d56e53173" />
 <img width="2003" height="1424" alt="MyKPs3" src="https://github.com/user-attachments/assets/d5553e10-7f01-4ec9-bce5-a588f896809a" />

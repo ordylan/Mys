@@ -1,169 +1,201 @@
-//BAD!!  未来再优化
 (function () {
-  const THRESHOLD_RATIO = 1.6;
-  const WRAP_ID = '__landscape_wrap_threshold';
-
-  // 存储原始样式 & 滚动位置
-  const _saved = {
-    htmlHeight: null,
-    bodyHeight: null,
-    bodyMargin: null,
-    bodyOverflow: null,
-    scrollX: 0,
-    scrollY: 0,
+  'use strict';
+  const CONFIG = {
+    phoneAspectThreshold: 1.6,
+    transitionDuration: '0.01s',
+    touchScrollSensitivity: 1
   };
 
-  function ensureWrap() {
-    let wrap = document.getElementById(WRAP_ID);
-    if (!wrap) {
-      wrap = document.createElement('div');
-      wrap.id = WRAP_ID;
-      Object.assign(wrap.style, {
-        width: '100%',
-        height: '100%',
-        boxSizing: 'border-box'
-      });
-      // 将 body 的现有子节点移入 wrap
-      while (document.body.firstChild) wrap.appendChild(document.body.firstChild);
-      document.body.appendChild(wrap);
+  let stage = null;
+  let scroller = null;
+  let isPhone = false;
+  let isRotated = false;
+
+  let touchStartX = 0;
+  let touchStartScrollTop = 0;
+  let isTouching = false;
+
+  function init() {
+    stage = document.createElement('div');
+    stage.id = 'landscape-stage';
+
+    scroller = document.createElement('div');
+    scroller.id = 'landscape-scroller';
+
+    const fragment = document.createDocumentFragment();
+    while (document.body.firstChild) {
+      fragment.appendChild(document.body.firstChild);
     }
-    return wrap;
+    scroller.appendChild(fragment);
+    stage.appendChild(scroller);
+    document.body.appendChild(stage);
+
+    injectStyles();
+    bindTouchEvents();
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
   }
 
-  function isPortrait() {
-    return window.innerHeight > window.innerWidth;
+  function injectStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+      * {
+        box-sizing: border-box;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        -webkit-text-size-adjust: 100%;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #landscape-stage {
+        position: fixed;
+        top: 0;
+        left: 0;
+        transform-origin: center center;
+        transition: transform ${CONFIG.transitionDuration} ease;
+        z-index: 1;
+        overflow: hidden;
+        will-change: transform;
+      }
+      #landscape-scroller {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: inherit;
+      }
+      #landscape-scroller::-webkit-scrollbar {
+        width: 6px;
+      }
+      #landscape-scroller::-webkit-scrollbar-thumb {
+        background: rgba(0,0,0,0.2);
+        border-radius: 3px;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
-  function shouldRotate(vw, vh) {
-    // 调试输出可以临时保留
-   console.log('ratio', vh / vw);
-    return isPortrait() && (vh / vw) >= THRESHOLD_RATIO;
+  function bindTouchEvents() {
+    scroller.addEventListener('touchstart', onTouchStart, { passive: false });
+    scroller.addEventListener('touchmove', onTouchMove, { passive: false });
+    scroller.addEventListener('touchend', onTouchEnd, { passive: false });
+    scroller.addEventListener('touchcancel', onTouchEnd, { passive: false });
   }
 
-  function saveOriginalState() {
-    _saved.htmlHeight = document.documentElement.style.height || '';
-    _saved.bodyHeight = document.body.style.height || '';
-    _saved.bodyMargin = document.body.style.margin || '';
-    _saved.bodyOverflow = document.body.style.overflow || '';
-    _saved.scrollX = window.pageXOffset || window.scrollX || 0;
-    _saved.scrollY = window.pageYOffset || window.scrollY || 0;
+  function onTouchStart(e) {
+    if (!isRotated) return;
+    if (e.touches.length !== 1) return;
+
+    isTouching = true;
+    touchStartX = e.touches[0].clientX;
+    touchStartScrollTop = scroller.scrollTop;
   }
 
-  function restoreOriginalState() {
-    document.documentElement.style.height = _saved.htmlHeight;
-    document.body.style.height = _saved.bodyHeight;
-    document.body.style.margin = _saved.bodyMargin;
-    document.body.style.overflow = _saved.bodyOverflow;
+  function onTouchMove(e) {
+    if (!isRotated) return;
+    if (!isTouching || e.touches.length !== 1) return;
+
+    e.preventDefault();
+
+    const currentX = e.touches[0].clientX;
+    const deltaX = currentX - touchStartX;
+    scroller.scrollTop = touchStartScrollTop + deltaX * CONFIG.touchScrollSensitivity;
   }
 
-  function apply() {
-    const wrap = ensureWrap();
+  function onTouchEnd() {
+    isTouching = false;
+  }
+
+  function handleResize() {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const dpr = window.devicePixelRatio || 1;
+    const deviceAspect = Math.max(vw, vh) / Math.min(vw, vh);
+    isPhone = deviceAspect >= CONFIG.phoneAspectThreshold;
 
-    if (shouldRotate(vw, vh)) {
-      // 如果尚未进入旋转模式，保存状态
-      if (wrap.dataset.rotated !== '1') {
-        saveOriginalState();
-      }
+    if (!isPhone) {
+      resetToNormal(vw, vh);
+      return;
+    }
 
-      // 计算旋转前应有的尺寸（使 rotate 后铺满视口）
-      const preW = vh;
-      const preH = vw;
-      const Wpx = Math.round(preW * dpr) / dpr;
-      const Hpx = Math.round(preH * dpr) / dpr;
+    applyForceLandscape(vw, vh);
+  }
+  function resetToNormal(vw, vh) {
+    isRotated = false;
+    stage.style.width = vw + 'px';
+    stage.style.height = vh + 'px';
+    stage.style.transform = 'none';
+    stage.style.top = '0';
+    stage.style.left = '0';
+    stage.style.margin = '0';
+    document.body.style.touchAction = 'auto';
+  }
 
-      // 设置 html/body 以避免滚动条影响布局（保存过旧值，可恢复）
-      document.documentElement.style.height = '100%';
-      document.body.style.height = '100%';
-      document.body.style.margin = '0';
+  function applyForceLandscape(vw, vh) {
+    const isPortrait = vw < vh;
+    isRotated = isPortrait;
 
-      // 设置 wrap 为固定并旋转
-      Object.assign(wrap.style, {
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        width: Wpx + 'px',
-        height: Hpx + 'px',
-        transformOrigin: 'center center',
-        willChange: 'transform',
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden',
-        WebkitFontSmoothing: 'antialiased',
-        zIndex: '9999',
-        overflow: 'auto',
-        boxSizing: 'border-box'
-      });
-
-      wrap.style.transform = 'translate3d(-50%,-50%,0) rotate(90deg)';
-      document.body.style.overflow = 'hidden';
-      wrap.dataset.rotated = '1';
-
-      // 把 wrap 的滚动位置设到之前的 scrollY，能保持视觉位置（按需）
-      wrap.scrollTop = _saved.scrollY || 0;
+    if (isPortrait) {
+      stage.style.width = vh + 'px';
+      stage.style.height = vw + 'px';
+      stage.style.top = '50%';
+      stage.style.left = '50%';
+      stage.style.marginLeft = -(vh / 2) + 'px';
+      stage.style.marginTop = -(vw / 2) + 'px';
+      stage.style.transform = 'rotate(90deg)';
+      document.body.style.touchAction = 'none';
     } else {
-      // 只有当之前处于旋转状态时才恢复（避免覆盖用户样式）
-      if (wrap.dataset.rotated === '1') {
-        // 恢复 html/body 的原始内联样式
-        restoreOriginalState();
-
-        // 把 wrapper 恢复为流式样式
-        wrap.style.transform = '';
-        wrap.style.position = '';
-        wrap.style.top = '';
-        wrap.style.left = '';
-        wrap.style.width = '100%';
-        wrap.style.height = '100%';
-        wrap.style.transformOrigin = '';
-        wrap.style.willChange = '';
-        wrap.style.backfaceVisibility = '';
-        wrap.style.WebkitBackfaceVisibility = '';
-        wrap.style.WebkitFontSmoothing = '';
-        wrap.style.zIndex = '';
-        wrap.style.overflow = '';
-        wrap.style.boxSizing = 'border-box';
-
-        // 強制一次回流，讓浏览器应用上面的清除
-        // （在某些移动浏览器上这是必要的）
-        // eslint-disable-next-line no-unused-expressions
-        wrap.getBoundingClientRect();
-
-        // 还原 body 的 overflow（保存的值）
-        document.body.style.overflow = _saved.bodyOverflow || '';
-
-        // 在短延时后恢复滚动位置（有助于 iOS/Android 在恢复布局后正确滚动）
-        setTimeout(() => {
-          try {
-            window.scrollTo(_saved.scrollX || 0, _saved.scrollY || 0);
-          } catch (e) {
-            // ignore
-          }
-        }, 40);
-
-        wrap.dataset.rotated = '0';
-      } else {
-        // 确保常规流式时也是 100% 覆盖的样式（第一次加载时）
-        wrap.style.width = '100%';
-        wrap.style.height = '100%';
-      }
+      stage.style.width = vw + 'px';
+      stage.style.height = vh + 'px';
+      stage.style.top = '0';
+      stage.style.left = '0';
+      stage.style.margin = '0';
+      stage.style.transform = 'none';
+      document.body.style.touchAction = 'auto';
     }
   }
 
-  // 节流 resize
-  let timer = null;
-  window.addEventListener('resize', () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { apply(); timer = null; }, 80);
-  }, { passive: true });
+  function mapClientToContent(clientX, clientY) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let x = clientX;
+    let y = clientY;
 
-  // orientationchange 需要小延迟以便尺寸稳定
-  window.addEventListener('orientationchange', () => setTimeout(apply, 200), { passive: true });
+    if (isRotated) {
+      const temp = x;
+      x = vh - y;
+      y = temp;
+    }
+
+    y += scroller.scrollTop;
+    return { x, y };
+  }
+
+  window.Landscape = {
+    refresh: handleResize,
+    isPhoneDevice: () => isPhone,
+    isRotated: () => isRotated,
+    getScrollTop: () => scroller.scrollTop,
+    setScrollTop: (val) => { scroller.scrollTop = val; },
+    mapClientToContent: mapClientToContent,
+    scrollerElement: () => scroller,
+    setPhoneThreshold: (threshold) => {
+      CONFIG.phoneAspectThreshold = threshold;
+      handleResize();
+    },
+    setTouchSensitivity: (val) => {
+      CONFIG.touchScrollSensitivity = val;
+    }
+  };
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', apply);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    apply();
+    init();
   }
 })();
-
