@@ -1,4 +1,6 @@
 <?php
+
+date_default_timezone_set('UTC');
 define('JWT_SECRET', 'yourself it a!');
 $TIME_FIELDS = ['createdAt','updatedAt','pinnedAt','timestamp','lastClicked','statusUpdatedAt'];
 
