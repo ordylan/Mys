@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>MyWords - 单词学习</title>
-    <script src="jszip.min.js">
-    </script>
+    <script src="jszip.min.js"></script>
+    <script src="darkreader.js"></script>
     <style>
 html, body {
   overscroll-behavior-y: none;
@@ -31,55 +31,22 @@ html, body {
     position: relative;
     background-color: #e7e7e7;
 }
-        #progressBar {
-            z-index: 30;
-            position: fixed;
-            top: 0;
-            inset-inline-start: 0;
-            width: 0;
-            padding: 0;
-            margin: 0;
-            transition: width 0.2s ease;
-            animation: progressAnimation 4s ease infinite;
-        }
-        #progressBackground {
-            height: 37px;
-            margin-top: -26px;
-            background-image: linear-gradient(var(--progressbar-shadow-start), var(--in-content-page-background) 100%),
-                var(--progressbar-gradient);
-            background-position: inherit;
-            filter: blur(5px);
-            border-end-end-radius: 33px;
-        }
-        #progressSolid {
-            position: absolute;
-            top: 0;
-            width: 100%;
-            height: 66%;
-            background-image: var(--progressbar-gradient);
-            background-position: inherit;
-        }
-        #progressBackground,
-        #progressSolid {
-            background-size: 200% 100%;
-        }
-        :root {
-            --progressbar-shadow-start: rgba(255, 255, 255, 0.7);
-            --progressbar-gradient: linear-gradient(90deg, #ffc519 0%, #FC00FF 50%, #FFD700 100%);
-            --in-content-page-background: #fff;
-        }
-        @keyframes progressAnimation {
-            0% {
-                background-position: 200%;
-            }
-            50% {
-                background-position: 100%;
-            }
-            100% {
-                background-position: 0%;
-            }
-        }
-
+#progressBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 6px;
+  z-index: 1000;
+  background: linear-gradient(90deg, #ffc519 0%, #FC00FF 50%, #ffc519 100%);
+  background-size: 200% 100%;
+  animation: pgb 3.456s linear infinite;
+  will-change: background-position;
+  transition: width 0.2s ease;
+}
+@keyframes pgb {
+  0%   { background-position: 200%; }
+  100% { background-position: 0%; }
+}
         body {
             font-family: sans-serif;
             margin: 0 auto;
@@ -412,10 +379,7 @@ html, body {
 <link rel="manifest" href="manifest.json">
 </head>
 <body>
-    <div id="progressBar" style="width: 0%; z-index: 1000">
-        <div id="progressBackground"></div>
-        <div id="progressSolid"></div>
-    </div>
+<div id="progressBar" style="width: 0%;"></div>
 <div id="topHeader">
     <button id="backHomeBtn">←Back</button>
     <h1 style="flex: 1; text-align: center; margin: 0;" id="currentModeLabel">MyWords 单词学习</h1>
@@ -450,7 +414,7 @@ html, body {
                     <label>复习: </label>
                     <select id="reviewSortSelect">
                         <option value="random">随机</option>
-                        <option value="earliest">最新(刚学完复习)</option>
+                        <!--<option value="earliest">最新(刚学完复习)</option>-->
                         <option value="oldest">最旧(最久未复习)</option>
                         <option value="mostErrors">最错(错误率最高)</option> <option value="randFav">收藏随机</option>
                     </select>
@@ -467,13 +431,13 @@ html, body {
                     <label>默写: </label>
                     <select id="dictationSortSelect">
                         <option value="random">随机</option>
-                        <option value="earliest">最新(刚学完复习)</option>
+                        <!--<option value="earliest">最新(刚学完复习)</option>-->
                         <option value="oldest">最旧(最久未复习)</option>
                         <option value="mostErrors">最错(错误率最高)</option> <option value="randFav">收藏随机</option>
                     </select>
                     <label>数量: </label>
                     <input type="number" id="dictationCountInput" value="20" min="5" max="200">
-                    <button id="startDictationBtn">开始默写</button>
+                    <button id="startDictationBtn">开始默写 (不佳)</button>
                 </span>
             </div>
             <hr>
@@ -531,7 +495,7 @@ html, body {
     <div id="settingsModal" class="modal-overlay">
         <div class="modal-content">
             <h3>Settings</h3>
-            <label><input type="checkbox" id="settingAudio" checked>启用音频</label><br><br>
+            <label><input type="checkbox" id="settingAudio" checked>启用音频</label>|<label><input type="checkbox" id="DARK">dark模式(无图)</label><br><br>
             <label>复习默认数量: <input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
             <label>默写默认数量: <input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
             <button onclick="if(confirm('会刷新页面!继续?且需联网!')){localStorage.ON_MyWords_Bank=0;location.reload();}">[重载词库]</button><br><br>
@@ -1091,7 +1055,7 @@ async function buildReviewList(count, filter, sort) {
             records.sort((a, b) => (b.lastLearnTime || '').localeCompare(a.lastLearnTime || ''));
             break;
         case 'oldest':  
-            records.sort((a, b) => (a.lastLearnTime || '').localeCompare(b.lastLearnTime || ''));
+            records.sort((a, b) => (a.lastReviewTime || '').localeCompare(b.lastReviewTime || ''));
             break;
         case 'mostErrors':
             records.sort((a, b) => {
@@ -1126,7 +1090,7 @@ async function buildDictationList(count, filter, sort) {
 
     switch (sort) {
         case 'earliest': 
-            records.sort((a, b) => (b.lastDictationTime || '').localeCompare(a.lastDictationTime || ''));
+            records.sort((a, b) => (b.lastLearnTime || '').localeCompare(a.lastLearnTime || ''));
             break;
         case 'oldest': 
             records.sort((a, b) => (a.lastDictationTime || '').localeCompare(b.lastDictationTime || ''));
@@ -1796,6 +1760,16 @@ document.getElementById('modeDictationBtn').addEventListener('click', () => {
             document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
             document.getElementById('favouriteBtn').addEventListener('click', toggleFavourite);
 
+const c = document.getElementById('DARK');
+const isOn = localStorage.getItem('ON_MyWords_Dark') === 'true';
+c.checked = isOn;
+(isOn ? DarkReader.enable : DarkReader.disable)();
+c.onchange = () => {
+    const on = c.checked;
+    (on ? DarkReader.enable : DarkReader.disable)();
+    localStorage.setItem('ON_MyWords_Dark', String(on));
+};
+
             // 历史导航按钮
             document.getElementById('prevHistoryBtn').addEventListener('click', () => {
                 if (historyViewIndex > 0) {
@@ -1850,6 +1824,7 @@ document.getElementById('modeDictationBtn').addEventListener('click', () => {
       });
   });
 }
+
     </script>
 </body>
 </html>

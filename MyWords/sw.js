@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'MyWords_1.6';
+const STATIC_CACHE = 'MyWords_1.8';
 const ZIP_CACHE = 'MyWords_Data_1';
 
 const PRECACHE_URLS = [
@@ -8,7 +8,7 @@ const PRECACHE_URLS = [
   'Books/SiJi.txt',
   'Books/LiuXiaoYanSiJi.txt',
   'Books/LiuJi.txt',
-  'manifest.json',
+  'manifest.json','darkreader.js',
   'favicon.ico','favicon.png'
 ];
 
