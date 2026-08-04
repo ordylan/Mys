@@ -1,14 +1,14 @@
-const STATIC_CACHE = 'MyWords_1.8';
+const STATIC_CACHE = 'MyWords_1.11';
 const ZIP_CACHE = 'MyWords_Data_1';
 
 const PRECACHE_URLS = [
-  './',
+  '/MyWords/',
   'jszip.min.js',
   'Books/SiJiGaoPin.txt',
   'Books/SiJi.txt',
   'Books/LiuXiaoYanSiJi.txt',
-  'Books/LiuJi.txt',
-  'manifest.json','darkreader.js',
+  'Books/LiuJi.txt','Books/LiuJiShanGuo.txt',
+  'darkreader.js',
   'favicon.ico','favicon.png'
 ];
 
@@ -31,12 +31,12 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames
-          .filter(name => name !== STATIC_CACHE && name !== ZIP_CACHE)  // 保留 ZIP 缓存
-          .map(name => {
-            console.log('[SW] 删除旧缓存:', name);
-            return caches.delete(name);
-          })
+        cacheNames.map(cacheName => {
+          if (cacheName.startsWith('MyWords_') && cacheName !== STATIC_CACHE && cacheName !== ZIP_CACHE) {
+            console.log('删除旧 MyWords 缓存:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
       );
     }).then(() => self.clients.claim())
   );
@@ -44,7 +44,9 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-
+if (url.pathname.toLowerCase().includes('.php')) {
+  return event.respondWith(fetch(event.request));
+}
   // WordsBank.json 强制走网络，不缓存
   if (url.pathname.endsWith(NETWORK_ONLY_URL)) {
     event.respondWith(fetch(event.request));

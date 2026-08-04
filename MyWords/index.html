@@ -1,3 +1,6 @@
+<!--未来还会加一个功能  就是自动取藏  加一个连对  只要答对了就++ 错了=0 每次提交顺便判定  连对>=6 就取消收藏  可在设置设置-->
+<!--有一些是设计如此 不是bug  例如返回首页劲爆模式的计时器不清除??目的就是这样! 不要开复习了又不想了!-->
+<!--补一下  部分人觉得我的FenScribe的 pdf转图片 处理后输出word  还要手动word转pdf  不但文件变大还多此一举! 但是  你可以亲自尝试一下  项目的目的是方便打印  节约空间, 你怎么可能直接操作pdf? 那么多不同元素!  而且你太强了 比我强多了 你可以不转图片操作pdf!  你有想过  该如何输出  在中国 我们使用A4纸  你可以完美输出A4吗? 太棒了你可以  但是你方便排版吗  这个公式被切两半了  一半在下一页 你有word加一个换行方便吗! 当然你更强可以实现公式等的精准裁切! 但你发现bug请一定要反馈给我, 因为部分诡异逻辑并不是精心设计的  而是我代码太差了没想到!  -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -5,6 +8,7 @@
     <title>MyWords - 单词学习</title>
     <script src="jszip.min.js"></script>
     <script src="darkreader.js"></script>
+    <script src="/MyKPs/api/sync.js"></script>
     <style>
 html, body {
   overscroll-behavior-y: none;
@@ -396,7 +400,8 @@ html, body {
             <select id="textbookSelect">
                 <option value="">-- 请选择课本 --</option>
             </select>
-            <button id="loadTextbookBtn">加载课本</button>
+            <button id="loadTextbookBtn">加载课本</button> | 
+        <button id="SYNCDO">[云Sync]</button>
             <div id="statusMsg"></div>
             <hr>
 
@@ -442,7 +447,10 @@ html, body {
             </div>
             <hr>
 
-            <h2>收藏夹</h2>
+            <h2 style="display:inline-block;">收藏夹 or 错词夹</h2>
+    <span style="margin-left:20px; font-size:0.8em;">
+        错词日期(utc): <input type="date" id="errDatePicker" style="vertical-align:middle;"> select 未来日期 for Favourite Words
+    </span>
             <div id="errorBookList"></div>
             <hr>
         </div>
@@ -498,6 +506,9 @@ html, body {
             <label><input type="checkbox" id="settingAudio" checked>启用音频</label>|<label><input type="checkbox" id="DARK">dark模式(无图)</label><br><br>
             <label>复习默认数量: <input type="number" id="settingReviewCount" value="20" min="5" max="200"></label><br><br>
             <label>默写默认数量: <input type="number" id="settingDictationCount" value="20" min="5" max="200"></label><br><br>
+            <label>劲爆爽复习: <input type="number" id="settingReviewTight" value="6" min="0" max="30">s (set 0 for off)</label><br><br>
+
+
             <button onclick="if(confirm('会刷新页面!继续?且需联网!')){localStorage.ON_MyWords_Bank=0;location.reload();}">[重载词库]</button><br><br>
             <button id="saveSettingsBtn">Save</button>
             <button id="closeSettingsBtn">Cancel</button>
@@ -525,11 +536,44 @@ html, body {
             const FAVOURITE_STORE = 'Favourite';
             const PROGRESS_STORE = 'Progress';
             const VERSION = 1;
+            let reviewTimer = null;
                 const MAX_ZIP_CACHE = 5;
                 const PREFETCH_COUNT = 2;
                 const zipCache = new Map();
                 const pendingLoads = new Map();
-            function openDB() {
+function enhanceDB(rawDB) {
+  const origTransaction = IDBDatabase.prototype.transaction;
+  rawDB.transaction = function (...args) {
+    const tx = origTransaction.apply(this, args);
+    const origObjectStore = IDBTransaction.prototype.objectStore;
+    tx.objectStore = function (storeName) {
+      const store = origObjectStore.apply(this, [storeName]);
+      if (storeName !== WORD_STORE) {
+        store.put = new Proxy(store.put, {
+          apply(target, thisArg, argumentsList) {
+            const [data, ...rest] = argumentsList;
+            return Reflect.apply(target, thisArg, [
+              { ...data, updatetime: new Date().toISOString() },
+              ...rest
+            ]);
+          }
+        });
+        store.add = new Proxy(store.add, {
+          apply(target, thisArg, argumentsList) {
+            const [data, ...rest] = argumentsList;
+            return Reflect.apply(target, thisArg, [
+              { ...data, updatetime: new Date().toISOString() },
+              ...rest
+            ]);
+          }
+        });
+      }
+      return store;
+    };
+    return tx;
+  };
+  return rawDB;
+}           function openDBa() {
                 return new Promise((resolve, reject) => {
                     const req = indexedDB.open(DB_NAME, VERSION);
                     req.onupgradeneeded = (e) => {
@@ -549,7 +593,10 @@ html, body {
                     req.onerror = (e) => reject(e.target.error);
                 });
             }
-
+async function openDB() {
+  const rawDB = await openDBa();
+  return enhanceDB(rawDB);
+}
             async function importWordsBank(estimatedSizeMB = 15) {
                 const url = 'WordsBank.json';
                 const progressBar = document.getElementById('progressBar');
@@ -644,6 +691,7 @@ document.getElementById('progressBar').style.width = percent + '%';
 }
 function getWordResource(db, word) {
     //太模糊了  极易出错  但总比没有好
+
   return new Promise(async (resolve, reject) => {
     const tx = db.transaction(WORD_STORE, 'readonly');
     const store = tx.objectStore(WORD_STORE);
@@ -720,7 +768,7 @@ function getWordResource(db, word) {
                 });
             }
 
-            const textbooks = ['SiJiGaoPin', 'SiJi', 'LiuXiaoYanSiJi', 'LiuJi'];
+            const textbooks = ['SiJiGaoPin','LiuJiShanGuo', 'SiJi', 'LiuXiaoYanSiJi', 'LiuJi'];
 
             function initTextbookDropdowns() {
                 const mainSelect = document.getElementById('textbookSelect');
@@ -1078,6 +1126,34 @@ async function buildReviewList(count, filter, sort) {
     }
     return records.slice(0, count).map(r => r.word);
 }
+async function getTodayErrWords(db, dateKey) {
+    return new Promise((res, rej) => {
+        const tx = db.transaction(PROGRESS_STORE, 'readonly');
+        const r = tx.objectStore(PROGRESS_STORE).get(dateKey);
+        r.onsuccess = () => {
+            const data = r.result;
+            if (data && data.words) {
+                res(data.words.split(',').filter(w => w));
+            } else {
+                res([]);
+            }
+        };
+        r.onerror = rej;
+    });
+}
+
+async function addErrWord(db, dateKey, word) {
+    let currentWords = await getTodayErrWords(db, dateKey);
+    currentWords.push(word);
+    const newWordsStr = currentWords.join(',');
+    return new Promise((res, rej) => {
+        const tx = db.transaction(PROGRESS_STORE, 'readwrite');
+        const store = tx.objectStore(PROGRESS_STORE);
+        const r = store.put({ key: dateKey, words: newWordsStr });
+        r.onsuccess = res;
+        r.onerror = rej;
+    });
+}
 async function buildDictationList(count, filter, sort) {
     const db = await openDB();
     let records = (await getAllFavourites(db)).filter(r => r.word && (r.answerCount > 0 || r.dictationCount > 0));
@@ -1148,12 +1224,14 @@ async function buildDictationList(count, filter, sort) {
 }                const word = currentWordList[currentIndex];
                 const db = await openDB();
                 currentWordData = await getWordResource(db, word);
+                console.log( currentWordData);
                 if (!currentWordData) {
-                    document.getElementById('currentWordSpan').textContent = word + ' (无数据)';
-                    document.getElementById('optionsArea').style.display = 'none';
-                    document.getElementById('resultArea').style.display = 'none';
-                    document.getElementById('dictationHint').style.display = 'none';
-                    return;
+                    //document.getElementById('currentWordSpan').textContent = word + ' (无数据--按理不会出现这行字)';
+                    //document.getElementById('optionsArea').style.display = 'none';
+                    //document.getElementById('resultArea').style.display = 'none';
+                    //document.getElementById('dictationHint').style.display = 'none';
+                    //return;
+                    currentWordData={"word":word,"wordSplit":"","accentUs":"","accentUk":"","audioUs":"","audioUk":"","exam":{},"cnMean":[{"meanType":"none","mean":"单词数据丢失,请尝试重载"}],"sentences":[{"sentenceEn":"err","translate":"err"}],"similars":[{"word":"点击与众不同的选项跳过单词,不要点我!","meanType":"","mean":"点击与众不同的选项跳过单词,不要点我!"},{"word":"点击与众不同的选项跳过单词,不要点我!","meanType":"","mean":"点击与众不同的选项跳过单词,不要点我!"},{"word":"点击与众不同的选项跳过单词,不要点我!","meanType":"","mean":"点击与众不同的选项跳过单词,不要点我!"}]};
                 }
                 const fav = await getFavourite(db, word);
                 currentIsFavourite = fav ? fav.isFavourite : false;
@@ -1193,6 +1271,7 @@ async function buildDictationList(count, filter, sort) {
                     const means = getChineseMeanings(currentWordData);
                     if (means.length) {
                         const opts = generateOptions(word, means[0], currentWordData.similars);
+                        opts.push({ text: "-- I don't know! --", isCorrect: false });
                         document.getElementById('optionsList').innerHTML = opts.map((o, i) =>
                             `<button class="option-btn" data-correct="${o.isCorrect}" data-index="${i}">${o.text}</button>`
                         ).join('');
@@ -1217,10 +1296,22 @@ updateProgress(Math.round(((currentIndex + 1) / currentWordList.length) * 1000)/
         imgContainer.innerHTML = '';
                  } );
                 }
-                // 复习模式不展示例句和翻译和图片
+if (reviewTimer) {
+    clearTimeout(reviewTimer);
+    reviewTimer = null;
+}
+
+                // 复习模式不展示例句和翻译和图片+劲爆功能!
                 if (currentMode === 'review') {
                     exampleBox.innerHTML = '';
                     imgContainer.innerHTML = '';
+    const tightSec = parseInt(localStorage.getItem('mywords_reviewTight') || 0);
+    if (tightSec > 0) {
+        reviewTimer = setTimeout(() => {
+            const wrongBtn = document.querySelector('.option-btn[data-correct="false"]:not([disabled])');
+            if (wrongBtn) wrongBtn.click();
+        }, tightSec * 1000);
+    }
                 } else if (example) {
                     let sent = example.sentenceEn;
                     if (currentMode === 'dictation') {
@@ -1254,6 +1345,7 @@ if (currentIndex + 1 < currentWordList.length) {
             }
 
             async function handleOptionClick(e) {
+                if (reviewTimer) { clearTimeout(reviewTimer); reviewTimer = null; }
                 const isCorrect = e.target.dataset.correct === 'true';
                 isTransitioning = true;
                 const word = currentWordList[currentIndex];
@@ -1267,6 +1359,10 @@ if (currentIndex + 1 < currentWordList.length) {
                 if (currentMode === 'learn') fav.lastLearnTime = now;
                 else if (currentMode === 'review') fav.lastReviewTime = now;
                 await saveFavourite(db, fav);
+if (!isCorrect) {
+    const dateKey = 'todayerr_' + new Date().toISOString().slice(0,10); //先用utc 假装用户可能熬夜到八点 算到前一天
+    await addErrWord(db, dateKey, word);
+}
                 await saveProgress(db, getProgressKey(), currentIndex);
                  
     if (currentMode === 'review') {
@@ -1361,6 +1457,7 @@ if (currentIndex + 1 < currentWordList.length) {
             }
 
  async function goNextWord() {
+    if (reviewTimer) { clearTimeout(reviewTimer); reviewTimer = null; }
     if (!isTransitioning) return;
     try {
         if (currentMode === 'dictation' && !dictationSubmitted) {
@@ -1413,6 +1510,7 @@ if (currentIndex + 1 < currentWordList.length) {
             }
 
             async function startMode(mode) {
+if (reviewTimer) { clearTimeout(reviewTimer); reviewTimer = null; }
 document.getElementById('completionOverlay').style.display = 'none';
 document.getElementById('currentWordSpan').style.display = '';
 document.getElementById('playAudioBtn').style.display = '';
@@ -1472,81 +1570,121 @@ document.getElementById('resultArea').style.display = 'none';
                 await displayCurrentWord();
             }
 
-            async function renderErrorBook() {
-                const db = await openDB();
-                const all = await getAllFavourites(db);
-                const favWords = all.filter(r => r.isFavourite && r.word);
-                const listEl = document.getElementById('errorBookList');
-                if (!favWords.length) {
-                    listEl.innerHTML = '<p style="color:#888;">None</p>';
-                    return;
-                }
-                const wordDataMap = {};
-                await Promise.all(favWords.map(async f => {
-                    const wd = await getWordResource(db, f.word);
-                    if (wd) wordDataMap[f.word] = wd;
-                }));
-                listEl.innerHTML = favWords.map(f => {
-                    const wd = wordDataMap[f.word];
-                    const meanings = wd?.cnMean || [];
-                    const meaningItems = meanings.map(m =>
-                        `<span class="fav-chinese-item" title="${m.mean}">${m.mean}</span>`).join('');
-                    return `
-                        <div class="fav-word-container" data-word="${f.word}">
-                            <div class="fav-word-row">
-                                <span class="fav-word-text">${f.word}</span>
-                                <div class="fav-chinese-area">
-                                    <div class="fav-chinese-grid">${meaningItems || '<span style="color:#aaa;">无释义</span>'}</div>
-                                </div>
-                                <button class="fav-remove-btn" data-word="${f.word}">✕</button>
-                            </div>
-                            <div class="fav-word-detail"></div>
-                        </div>
-                    `;
-                }).join('');
+async function renderErrorBook() {
+    const db = await openDB();
+    const datePicker = document.getElementById('errDatePicker');
+    //const selectedDate = datePicker.value;
+    const selectedDate = datePicker.value && datePicker.value <= new Date().toISOString().split('T')[0] 
+    ? datePicker.value 
+    : '';
+    const listEl = document.getElementById('errorBookList');
 
-                document.querySelectorAll('.fav-word-container').forEach(container => {
-                    const word = container.dataset.word;
-                    const wordText = container.querySelector('.fav-word-text');
-                    const chineseArea = container.querySelector('.fav-chinese-area');
-                    const chineseGrid = container.querySelector('.fav-chinese-grid');
-                    const removeBtn = container.querySelector('.fav-remove-btn');
-                    const detailDiv = container.querySelector('.fav-word-detail');
+    let items = [];
 
-                    wordText.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        if (detailDiv.classList.contains('show')) {
-                            detailDiv.classList.remove('show');
-                        } else {
-                            if (!detailDiv.innerHTML) {
-                                const wd = wordDataMap[word] || await getWordResource(await openDB(),
-                                    word);
-                                detailDiv.innerHTML = wd ? buildWordDetailsHTML(wd) : '<p>无详情</p>';
-                                if (wd) bindDetailButtons(detailDiv);
-                            }
-                            detailDiv.classList.add('show');
-                        }
-                    });
+    if (selectedDate) {
+        const dateKey = 'todayerr_' + selectedDate;
+        const errWords = await getTodayErrWords(db, dateKey);
+        if (errWords.length === 0) {
+            listEl.innerHTML = '<p style="color:#888;">无记录. 到底是全对还是没学呢? </p>';
+            return;
+        }
 
-                    chineseArea.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        chineseGrid.classList.toggle('show');
-                    });
+        const freq = {};
+        errWords.forEach(w => freq[w] = (freq[w] || 0) + 1);
+        items = Object.entries(freq)
+            .sort((a, b) => b[1] - a[1])
+            .map(([word, count]) => ({
+                word,
+                displayWord: `${word}(${count})`,
+                showRemove: false
+            }));
+    } else {
+        const all = await getAllFavourites(db);
+        const favs = all.filter(r => r.isFavourite && r.word);
+        if (favs.length === 0) {
+            listEl.innerHTML = '<p style="color:#888;">None</p>';
+            return;
+        }
+        items = favs.map(f => ({
+            word: f.word,
+            displayWord: f.word,
+            showRemove: true
+        }));
+    }
 
-                    removeBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        if (confirm(`确定要取消收藏 "${word}" 吗？`)) {
-                            const db = await openDB();
-                            let fav = await getFavourite(db, word);
-                            if (fav) { fav.isFavourite = false;
-                                await saveFavourite(db, fav); }
-                            renderErrorBook();
-                        }
-                    });
-                });
+    const wordDataMap = {};
+    await Promise.all(items.map(async item => {
+        if (!wordDataMap[item.word]) {
+            wordDataMap[item.word] = await getWordResource(db, item.word);
+        }
+    }));
+    listEl.innerHTML = items.map(item => {
+        const wd = wordDataMap[item.word];
+        const meanings = wd?.cnMean || [];
+        const meaningHtml = meanings.length
+            ? meanings.map(m => `<span class="fav-chinese-item" title="${m.mean}">${m.mean}</span>`).join('')
+            : '<span style="color:#aaa;">无释义</span>';
+        return `
+            <div class="fav-word-container" data-word="${item.word}">
+                <div class="fav-word-row">
+                    <span class="fav-word-text">${item.displayWord}</span>
+                    <div class="fav-chinese-area">
+                        <div class="fav-chinese-grid">${meaningHtml}</div>
+                    </div>
+                    <button class="fav-remove-btn" data-word="${item.word}"
+                        style="${item.showRemove ? '' : 'visibility:hidden;'}">✕</button>
+                </div>
+                <div class="fav-word-detail"></div>
+            </div>
+        `;
+    }).join('');
+
+    document.querySelectorAll('.fav-word-container').forEach(container => {
+        const word = container.dataset.word;
+        const wordText = container.querySelector('.fav-word-text');
+        const chineseGrid = container.querySelector('.fav-chinese-grid');
+        const detailDiv = container.querySelector('.fav-word-detail');
+        const removeBtn = container.querySelector('.fav-remove-btn');
+
+        wordText.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (detailDiv.classList.contains('show')) {
+                detailDiv.classList.remove('show');
+                return;
             }
+            if (!detailDiv.innerHTML) {
+                const wd = wordDataMap[word] || await getWordResource(await openDB(), word);
+                if (wd) {
+                    detailDiv.innerHTML = buildWordDetailsHTML(wd);
+                    bindDetailButtons(detailDiv);
+                } else {
+                    detailDiv.innerHTML = '<p>无详情</p>';
+                }
+            }
+            detailDiv.classList.add('show');
+        });
 
-            function updateFavouriteButton() {
+        container.querySelector('.fav-chinese-area').addEventListener('click', (e) => {
+            e.stopPropagation();
+            chineseGrid.classList.toggle('show');
+        });
+
+        if (removeBtn.style.visibility !== 'hidden') {
+            removeBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (confirm(`确定要取消收藏 "${word}" 吗？`)) {
+                    const db2 = await openDB();
+                    let fav = await getFavourite(db2, word);
+                    if (fav) {
+                        fav.isFavourite = false;
+                        await saveFavourite(db2, fav);
+                    }
+                    renderErrorBook();
+                }
+            });
+        }
+    });
+}            function updateFavouriteButton() {
                 const btn = document.getElementById('favouriteBtn');
                 if (currentIsFavourite) {
                     btn.textContent = '已收藏';
@@ -1597,6 +1735,8 @@ document.getElementById('resultArea').style.display = 'none';
                 const dictCount = localStorage.getItem('mywords_dictationCount') || 20;
                 document.getElementById('settingDictationCount').value = dictCount;
                 document.getElementById('dictationCountInput').value = dictCount;
+    const tightTime = localStorage.getItem('mywords_reviewTight') || 6;
+    document.getElementById('settingReviewTight').value = tightTime;
             }
 
             function saveSettings() {
@@ -1609,7 +1749,9 @@ document.getElementById('resultArea').style.display = 'none';
                 const dictVal = document.getElementById('settingDictationCount').value;
                 localStorage.setItem('mywords_dictationCount', dictVal);
                 document.getElementById('dictationCountInput').value = dictVal;
-                document.getElementById('settingsModal').style.display = 'none';
+    const tightVal = document.getElementById('settingReviewTight').value;
+    localStorage.setItem('mywords_reviewTight', tightVal);
+    document.getElementById('settingsModal').style.display = 'none';
             }
 
             // 取词翻译逻辑
@@ -1687,9 +1829,9 @@ document.getElementById('resultArea').style.display = 'none';
                 const resultArea = document.getElementById('resultArea');
                 if (optionsArea.style.display !== 'none' && currentMode !== 'dictation') {
                     const key = e.key.toLowerCase();
-                    if (['z', 'x', 'c', 'v'].includes(key)) {
+                    if (['z', 'x', 'c', 'v', 'b'].includes(key)) {
                         e.preventDefault();
-                        const idx = { z: 0, x: 1, c: 2, v: 3 } [key];
+                        const idx = { z: 0, x: 1, c: 2, v: 3 , b: 4 } [key];
                         const btns = document.querySelectorAll('.option-btn');
                         if (btns[idx] && !btns[idx].disabled) btns[idx].click();
                     }
@@ -1742,6 +1884,9 @@ document.getElementById('modeDictationBtn').addEventListener('click', () => {
     currentMode = 'dictation';
     updateModeButtons();
 });
+document.getElementById('errDatePicker').addEventListener('change', () => {
+    renderErrorBook();
+});
             document.getElementById('startReviewBtn').addEventListener('click', () => startMode('review'));
             document.getElementById('startDictationBtn').addEventListener('click', () => startMode('dictation'));
             document.getElementById('backHomeBtn').addEventListener('click', () => switchView('home'));
@@ -1759,7 +1904,7 @@ document.getElementById('modeDictationBtn').addEventListener('click', () => {
                 'settingsModal').style.display = 'none');
             document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
             document.getElementById('favouriteBtn').addEventListener('click', toggleFavourite);
-
+            localStorage.setItem('mywords_reviewTight', localStorage.getItem('mywords_reviewTight') ?? 6);
 const c = document.getElementById('DARK');
 const isOn = localStorage.getItem('ON_MyWords_Dark') === 'true';
 c.checked = isOn;
@@ -1783,7 +1928,29 @@ c.onchange = () => {
                     showHistoryResult(historyViewIndex);
                 }
             });
-
+const syncBtn = document.getElementById('SYNCDO');
+if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+                        const modal = document.getElementById('wordDetailModal');
+                modal.style.display = 'flex';
+        syncBtn.disabled = true;
+        syncBtn.textContent = 'Syncing...';
+        let aa = document.getElementById('wordDetailInner');
+aa.innerHTML='记得登录后才能同步 go to <a href="../MyKPs/api/DoLogin.html?from=MyWords">Login</a>';
+sync("MyWords").then(result => {
+    let aa = document.getElementById('wordDetailInner');
+  if(aa) aa.innerHTML="Success, 记得 <a onclick='window.location.reload()'>Refresh this page!</a>" + result.aa;
+  console.log('同步结果', result);
+  syncBtn.textContent="Sync";
+  syncBtn.disabled=false;
+}).catch(err => {let aa = document.getElementById('wordDetailInner');
+     syncBtn.textContent="Sync";
+  syncBtn.disabled=false;
+  console.log(err);
+  alert('同步出错', err.message);
+});  
+    });
+}
             // 单词详情模态框关闭
             document.getElementById('closeWordDetailModal').addEventListener('click', () => {
                 document.getElementById('wordDetailModal').style.display = 'none';
@@ -1805,16 +1972,18 @@ c.onchange = () => {
                 updateModeButtons();
             });
         })();
-        if ('serviceWorker' in navigator) {
+
+const isFileProtocol = location.protocol === 'file:';
+if (!isFileProtocol && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/MyWords/sw.js', { scope: '/MyWords/' })
       .then(registration => {
-        console.log('[SW] 注册成功作用域:', registration.scope);
+        console.log('[SW] 注册成功，作用域:', registration.scope);
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[SW] 有新内容可用刷新页面');
+              console.log('[SW] 有新内容可用，刷新页面');
             }
           });
         });
@@ -1824,7 +1993,6 @@ c.onchange = () => {
       });
   });
 }
-
     </script>
 </body>
 </html>
