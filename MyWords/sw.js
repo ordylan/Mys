@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'MyWords_1.11';
+const STATIC_CACHE = 'MyWords_1.15';
 const ZIP_CACHE = 'MyWords_Data_1';
 
 const PRECACHE_URLS = [

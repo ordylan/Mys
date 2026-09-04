@@ -810,11 +810,13 @@ function getWordResource(db, word) {
 
             function getFirstExample(sentences) { return sentences?.[0] || null; }
 
-            function getChineseMeanings(wordData) {
-                return wordData?.cnMean?.length ? [{ type: wordData.cnMean[0].meanType || '', mean: wordData.cnMean[0]
-                        .mean || ''
-                    }] : [];
-            }
+function getChineseMeanings(wordData) {
+    if (!wordData?.cnMean?.length) return [];
+    return wordData.cnMean.map(item => ({
+        type: item.meanType || '',
+        mean: item.mean || ''
+    }));
+}
 
             function formatMergedMeaning(meanObj) { return (meanObj.type ? meanObj.type + ' ' : '') + meanObj.mean; }
 
@@ -1252,7 +1254,12 @@ async function buildDictationList(count, filter, sort) {
                     document.getElementById('wordAccent').style.display = '';
                     document.getElementById('dictationHint').style.display = 'none';
                 }
-                const example = getFirstExample(currentWordData.sentences);
+                let example;
+if (currentMode === 'review' && currentWordData.sentences && currentWordData.sentences.length) {
+    example = currentWordData.sentences[Math.floor(Math.random() * currentWordData.sentences.length)];
+} else {
+    example = getFirstExample(currentWordData.sentences);
+}
                 const exampleBox = document.getElementById('exampleSentenceBox');
                 document.getElementById('resultArea').style.display = 'none';
                 if (currentMode === 'dictation') {
@@ -1270,7 +1277,10 @@ async function buildDictationList(count, filter, sort) {
                     document.getElementById('dictationArea').style.display = 'none';
                     const means = getChineseMeanings(currentWordData);
                     if (means.length) {
-                        const opts = generateOptions(word, means[0], currentWordData.similars);
+    const correctMean = (currentMode === 'review' && means.length > 1)
+        ? means[Math.floor(Math.random() * means.length)]
+        : means[0];
+    const opts = generateOptions(word, correctMean, currentWordData.similars);
                         opts.push({ text: "-- I don't know! --", isCorrect: false });
                         document.getElementById('optionsList').innerHTML = opts.map((o, i) =>
                             `<button class="option-btn" data-correct="${o.isCorrect}" data-index="${i}">${o.text}</button>`
@@ -1303,7 +1313,7 @@ if (reviewTimer) {
 
                 // 复习模式不展示例句和翻译和图片+劲爆功能!
                 if (currentMode === 'review') {
-                    exampleBox.innerHTML = '';
+                    //exampleBox.innerHTML = '';
                     imgContainer.innerHTML = '';
     const tightSec = parseInt(localStorage.getItem('mywords_reviewTight') || 0);
     if (tightSec > 0) {
@@ -1312,7 +1322,7 @@ if (reviewTimer) {
             if (wrongBtn) wrongBtn.click();
         }, tightSec * 1000);
     }
-                } else if (example) {
+                }  if (example) {
                     let sent = example.sentenceEn;
                     if (currentMode === 'dictation') {
                         sent = sent.replace(new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '____');
