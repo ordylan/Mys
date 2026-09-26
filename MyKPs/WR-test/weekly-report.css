@@ -75,11 +75,50 @@ h1{margin:6px 0 14px}
   max-width: 100%;
 }
 
+.active-time-card {
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #fffdf7 0%, #fff8e6 100%);
+  border: 1px solid #f1dfb2;
+}
+
+.active-time-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 30px 4px 0;
+}
+
+.active-time-heading h3 {
+  margin: 0;
+  color: #8a5a00;
+}
+
+.active-time-heading p {
+  margin: 4px 0 0;
+  color: #9b7b37;
+  font-size: 12px;
+}
+
+.active-time-summary {
+  color: #8a5a00;
+  font-size: 12px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.active-time-card canvas {
+  width: 100% !important;
+  height: 230px !important;
+  display: block;
+}
+
 .charts{
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:12px;
   align-items:start;
+  margin-bottom: 12px;
 }
 
 .chart-card{
@@ -92,13 +131,14 @@ h1{margin:6px 0 14px}
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
-/* 第一个图表（类别图）设置16:9比例 */
-#categoryChart {
-  min-height: 320px !important; /* 16:9比例的高度 */
+.chart-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #23374d;
 }
 
-#categoryChart + canvas {
-  height: 320px !important;
+.chart-card-tall {
+  min-height: 360px;
 }
 
 .chart-card canvas{
@@ -107,6 +147,106 @@ h1{margin:6px 0 14px}
   display: block;
   max-width: 100%;
 }
+
+.chart-card-tall canvas {
+  height: 320px !important;
+}
+
+.heatmap-card {
+  margin-top: 12px;
+}
+
+.heatmap-container {
+  overflow-x: auto;
+  padding: 8px 0 4px;
+}
+
+.heatmap-inner {
+  display: inline-flex;
+  gap: 3px;
+  min-width: fit-content;
+}
+
+.heatmap-labels-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-right: 6px;
+  padding-top: 20px;
+  flex-shrink: 0;
+}
+
+.heatmap-labels-left span {
+  height: 14px;
+  line-height: 14px;
+  font-size: 10px;
+  color: #6c757d;
+  text-align: right;
+}
+
+.heatmap-months-row {
+  display: flex;
+  gap: 3px;
+  margin-left: 24px;
+  margin-bottom: 3px;
+  height: 14px;
+  position: relative;
+}
+
+.heatmap-months-row span {
+  font-size: 10px;
+  color: #6c757d;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.heatmap-weeks {
+  display: flex;
+  gap: 3px;
+  flex-direction: row;
+}
+
+.heatmap-week-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heatmap-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: #f5f1ea;
+  flex-shrink: 0;
+}
+
+.heatmap-cell.level-1 { background: #fce8b3; }
+.heatmap-cell.level-2 { background: #f5c242; }
+.heatmap-cell.level-3 { background: #d4980a; }
+.heatmap-cell.level-4 { background: #8a5a00; }
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: #6c757d;
+  flex-wrap: wrap;
+}
+
+.heatmap-legend .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.swatch.s0 { background: #f5f1ea; }
+.swatch.s1 { background: #fce8b3; }
+.swatch.s2 { background: #f5c242; }
+.swatch.s3 { background: #d4980a; }
+.swatch.s4 { background: #8a5a00; }
 #detailsTable{width:100%;border-collapse:collapse;background:var(--card);border-radius:6px;overflow:hidden}
 #detailsTable{width:100%;border-collapse:collapse;background:var(--card);border-radius:6px}
 #detailsTable thead th{position:sticky;top:0;background:var(--card);z-index:2;padding:10px;border-bottom:2px solid #eee;text-align:left}

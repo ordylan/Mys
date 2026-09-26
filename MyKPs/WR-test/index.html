@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Daily Plans Report</title>
   <link rel="stylesheet" href="./weekly-report.css">
-  <!-- Chart.js CDN -->
-  <script src="chart.js"></script>
-  <script src="./quote-generator.js"></script>
 
+  <script src="chart.js"></script>
 </head>
 <body>
   <div class="container">
@@ -41,32 +39,62 @@
 
     <div id="overview" class="panel">
       <div class="cards" id="overviewCards"></div>
-      
-      <!-- 单独的趋势图 -->
+
       <div class="main-chart">
         <div class="chart-card main-trend-card">
           <button class="zoom-btn" data-chart="trend">+</button>
           <canvas id="trendChart"></canvas>
         </div>
+        <!--        <div class="chart-card main-trend-card" style="margin-top:16px;">
+          <button class="zoom-btn" data-chart="dailyMinutesLine">+</button>
+          <canvas id="dailyMinutesChart"></canvas>
+        </div>-->
       </div>
-      
-      <!-- 下方三个图表 -->
+
+      <div class="chart-card active-time-card">
+        <div class="active-time-heading">
+          <div>
+            <h3>Active Learning Time</h3>
+            <p></p>
+          </div>
+          <span class="active-time-summary" id="activeTimeSummary">0 active points</span>
+        </div>
+        <canvas id="activeTimeChart"></canvas>
+      </div>
+
       <div class="charts">
         <div class="chart-card">
-          <button class="zoom-btn" data-chart="category">+</button>
-          <canvas id="categoryChart"></canvas>
+          <button class="zoom-btn" data-chart="subject">+</button>
+          <canvas id="subjectChart"></canvas>
         </div>
         <div class="chart-card">
-          <button class="zoom-btn" data-chart="tag">+</button>
-          <canvas id="tagChart"></canvas>
+          <button class="zoom-btn" data-chart="knowledgePoint">+</button>
+          <canvas id="kpsChart"></canvas>
         </div>
-        <div class="chart-card">
-          <button class="zoom-btn" data-chart="dailyCategory">+</button>
-          <canvas id="dailyCategoryChart"></canvas>
+        <div class="chart-card chart-card-tall">
+          <button class="zoom-btn" data-chart="rank">+</button>
+          <canvas id="rankChart"></canvas>
         </div>
       </div>
-      <div id="suggestions" class="card" style="margin-top:12px;">
-<h3>Study Suggestions</h3><div id="suggestionsContent">No suggestions -- please select a date and generate the report</div>
+
+      <div class="chart-card heatmap-card">
+        <h3>Learning Heatmap</h3>
+        <div class="heatmap-container" id="heatmapContainer">
+          <div class="heatmap-months-row" id="heatmapMonths"></div>
+          <div class="heatmap-inner">
+            <div class="heatmap-labels-left" id="heatmapLabels"></div>
+            <div class="heatmap-weeks" id="heatmapWeeks"></div>
+          </div>
+          <div class="heatmap-legend">
+            <span>Low</span>
+            <span class="swatch s0"></span>
+            <span class="swatch s1"></span>
+            <span class="swatch s2"></span>
+            <span class="swatch s3"></span>
+            <span class="swatch s4"></span>
+            <span>High</span>
+          </div>
+        </div>
       </div>
     </div>
 

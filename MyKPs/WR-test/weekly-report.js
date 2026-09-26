@@ -2,6 +2,128 @@
   let subjectKeys = [];    
 let earliestDate = null;   
 let subjectDisplayMap = {};  
+// 科目颜色映射（与参考风格一致的色板）
+const subjectColorMap = {};
+const defaultColorPool = ['#e15759', '#4e79a7', '#f28e2b', '#59a14f', '#b07aa1', '#ffa200', '#9c755f', '#bab0ac'];
+let colorPoolIndex = 0;
+const pieLinesPlugin = {
+  id: 'pieLines',
+  afterDraw(chart) {
+    if (chart.config.type !== 'pie' && chart.config.type !== 'doughnut') return;
+
+    const { ctx, data } = chart;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data.length) return;
+
+    const arcs = meta.data;
+    const outerRadius = arcs[0].outerRadius;
+    const centerX = arcs[0].x;
+    const centerY = arcs[0].y;
+
+    const baseFontSize =Math.max(14, outerRadius / 6);
+    const font = `${baseFontSize}px Arial`;
+
+    // 连线样式
+    const lineColor = '#666';
+    const lineWidth = 1.2;
+    const textColor = '#333';
+    const dotRadius = 2;
+    const offset = Math.max(10, outerRadius * 0.2);
+
+    ctx.save();
+    ctx.font = font;
+    ctx.textBaseline = 'middle';
+
+    arcs.forEach((arc, i) => {
+      const rawLabel = data.labels?.[i] ?? '';
+      const rawValue = data.datasets[0]?.data?.[i] ?? '';
+
+      let displayText = '';
+      const labelCallback = chart.options.plugins?.tooltip?.callbacks?.label;
+      if (typeof labelCallback === 'function') {
+        const context = {
+          label: rawLabel,
+          raw: rawValue,
+          dataIndex: i,
+          datasetIndex: 0,
+          dataset: chart.data.datasets[0],
+          formattedValue: rawValue,
+          chart: chart
+        };
+        displayText = labelCallback(context);
+      } else {
+        displayText = `${rawLabel}:${rawValue}`;
+      }
+      if (!displayText) return;
+
+      const midAngle = (arc.startAngle + arc.endAngle) / 2;
+      const edgeX = centerX + Math.cos(midAngle) * outerRadius;
+      const edgeY = centerY + Math.sin(midAngle) * outerRadius;
+
+      let labelX = centerX + Math.cos(midAngle) * (outerRadius + offset);
+      let labelY = centerY + Math.sin(midAngle) * (outerRadius + offset);
+
+      const isRight = Math.cos(midAngle) >= 0;
+      ctx.textAlign = isRight ? 'left' : 'right';
+
+      // 小圆点
+      ctx.beginPath();
+      ctx.arc(edgeX, edgeY, dotRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = lineColor;
+      ctx.fill();
+
+      // 连线
+      ctx.beginPath();
+      ctx.moveTo(edgeX, edgeY);
+      ctx.lineTo(labelX, labelY);
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+
+      // 文字
+      ctx.fillStyle = textColor;
+      ctx.fillText(displayText, labelX, labelY);
+    });
+
+    ctx.restore();
+  }
+};
+const barValueLabels = {
+  id: 'barValueLabels',
+  afterDraw(chart) {
+    if (chart.config.type !== 'bar') return;
+
+    const { ctx, data } = chart;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data.length) return;
+
+    const fontSize = 15;
+    const font = `bold ${fontSize}px Arial`;
+    const textColor = '#333';
+    const offset = 6;
+
+    ctx.save();
+    ctx.font = font;
+    ctx.textBaseline = 'middle';
+
+    meta.data.forEach((bar, i) => {
+      const rawValue = data.datasets[0].data[i];
+      const rawLabel = data.labels?.[i] ?? '';
+
+      let displayText = formatMinutesLabel(rawValue);
+      if (!displayText) return;
+      const x = bar.x;
+      const y = bar.y;
+      const labelX = x + offset;
+      const labelY = y;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = textColor;
+      ctx.fillText(displayText, labelX, labelY);
+    });
+
+    ctx.restore();
+  }
+};
 async function loadConfigAndInitRange() {
   try {
     if (db && db.objectStoreNames.contains('AppConfig')) {
@@ -16,6 +138,11 @@ async function loadConfigAndInitRange() {
         subjectKeys = config.subjects.map(s => s.key);
         config.subjects.forEach(s => {
           subjectDisplayMap[s.key] = s.displayName;
+          // 为每个科目分配颜色
+          if (!subjectColorMap[s.key]) {
+            subjectColorMap[s.key] = defaultColorPool[colorPoolIndex % defaultColorPool.length];
+            colorPoolIndex++;
+          }
         });
       }
     }
@@ -67,14 +194,18 @@ async function loadConfigAndInitRange() {
 
   const overviewCards = document.getElementById('overviewCards');
   // Grab canvas elements so we can apply DPR scaling to avoid blurry charts on high-DPI screens
-  const categoryCanvas = document.getElementById('categoryChart');
+  const subjectCanvas = document.getElementById('subjectChart');
   const trendCanvas = document.getElementById('trendChart');
-  const tagCanvas = document.getElementById('tagChart');
-  const dailyCategoryCanvas = document.getElementById('dailyCategoryChart');
-  const categoryCtx = categoryCanvas.getContext('2d');
+  const activeTimeCanvas = document.getElementById('activeTimeChart');
+  const kpsCanvas = document.getElementById('kpsChart');
+  const rankCanvas = document.getElementById('rankChart');
+  //const dailyMinutesCanvas = document.getElementById('dailyMinutesChart');
+  const subjectCtx = subjectCanvas.getContext('2d');
   const trendCtx = trendCanvas.getContext('2d');
-  const tagCtx = tagCanvas.getContext('2d');
-  const dailyCategoryCtx = dailyCategoryCanvas.getContext('2d');
+  const activeTimeCtx = activeTimeCanvas.getContext('2d');
+  const kpsCtx = kpsCanvas.getContext('2d');
+  const rankCtx = rankCanvas.getContext('2d');
+  //const dailyMinutesCtx = dailyMinutesCanvas ? dailyMinutesCanvas.getContext('2d') : null;
   const detailsTbody = document.querySelector('#detailsTable tbody');
   const overviewPanel = document.getElementById('overview');
   const tablePanel = document.getElementById('tableView');
@@ -86,43 +217,39 @@ async function loadConfigAndInitRange() {
   const zoomChartCtx = zoomChartCanvas.getContext('2d');
   const zoomChartTitle = document.getElementById('zoomChartTitle');
   
-  let categoryChart, trendChart, tagChart, dailyCategoryChart, zoomChart;
+  let subjectChart, trendChart, activeTimeChart, kpsChart, rankChart, zoomChart, dailyMinutesChart;
   // KPs mapping cache (uniqueId -> name)
   let kpsMap = null;
   // 添加一个变量来跟踪当前放大的图表类型
   let currentZoomChartType = null;
 
-  // Enhanced combinatorial quote segments with randomized variables and random time between 22:00 and 01:00
-  // Templates contain placeholders: {night} {adj} {time} etc., which will be replaced by randomized synonyms or formats.
+  // Enhanced combinatorial quote segments with randomized variables and random time between 22:00 and 01:00.
   const starters = [
-    '{night}，', '{night}里，', '在{night}，', '夜深时，', '当{night}降临，', '趁着{adj}的夜，', '在安静的{night}，', '这会儿，', '当大家已睡，', '当世界安静，', '在灯还亮着时，', '当时针指向今晚，'
+    '{night}, ', '{night} at this hour, ', 'As {night} settles in, ', 'Late at night, ', 'When {night} arrives, ', 'In the quiet of {night}, ', 'At this moment, ', 'When the world is still, ', 'With the lights still on, ', 'As the clock moves past midnight, '
   ];
   const middles = [
-    '{verb}一件事，', '把最重要的事先做完，', '把拖延打一打败，', '专注一段时间，', '把任务拆成小步，', '把难题攻克一小半，', '把清单的第一项搞定，',
-    '坚持二十分钟的深度工作，', '用番茄钟推动进度，', '把今天该学的学完，', '把手头的任务推进到下一站，', '先做最难的那件，', '赶在午夜前完成关键一项，'
+    '{verb} one important thing, ', 'finish the most important task first, ', 'beat procrastination for a while, ', 'focus for a short stretch, ', 'break the task into small steps, ', 'make a small breakthrough on the hard part, ', 'clear the first item on the list, ',
+    'stay deep-focused for twenty minutes, ', 'use a pomodoro to push progress, ', 'complete today\'s study block, ', 'advance the current task to the next stage, ', 'start with the hardest part, ', 'complete a key milestone before midnight, '
   ];
   const endings = [
-    '你会感谢现在的自己。', '这是对未来的温柔投资。', '明天会因为今晚不同。', '再坚持一会儿，成果会显现。', '别忘了也要好好休息。', '这会成为你前进的资本。',
-    '哪怕只进步一点，也算赢了今天。', '给自己一个交代，给未来一个可能。', '积累小胜利，终会看到长远的改变。', '这份努力会沉淀成实力。'
+    'you will be grateful for your future self.', 'this is a gentle investment in tomorrow.', 'tomorrow will feel different because of tonight.', 'keep going a little longer and the results will appear.', 'remember to rest well too.', 'this effort will become your strength.',
+    'even a small improvement counts as a win today.', 'give yourself a clear finish line for tomorrow.', 'small victories accumulate into lasting progress.', 'this discipline will turn into real capability.'
   ];
 
-  // inserts often include the {time} placeholder which will be formatted randomly
   const inserts = [
-    '坚持到{time}，', '直到{time}，', '约在{time}，', '持续到深夜，', '坚持一小时，', '', '持续半小时，', '带着目标去做，', '把结果记录下来，'
+    'hold on until {time}, ', 'continue until {time}, ', 'aim for {time}, ', 'keep going through the night, ', 'stick with it for an hour, ', '', 'keep it going for half an hour, ', 'move with intention, ', 'record the outcome before you stop, '
   ];
 
-  // synonyms and small variable pools
-  const nightSyns = ['夜晚', '深夜', '午夜', '夜色', '夜里', '夜间', '星夜', '暮色', '黑夜'];
-  const adjSyns = ['静谧', '安静', '寂静', '平和', '温柔', '沉稳', '静好的'];
-  const verbSyns = ['完成', '解决', '专注', '攻克', '推进', '落实', '启动', '突破', '收获'];
+  const nightSyns = ['night', 'the late hour', 'midnight', 'the quiet night', 'the dark hour', 'the stillness of night'];
+  const adjSyns = ['calm', 'quiet', 'steady', 'gentle', 'peaceful', 'serene'];
+  const verbSyns = ['finish', 'solve', 'focus on', 'tackle', 'advance', 'start', 'break through', 'make progress on', 'complete'];
 
-  // time formatting variants: functions that accept a Date and return a string
   const timeFormats = [
     d => `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,
-    d => `晚上${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,
-    d => (d.getHours()===0 ? `凌晨${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}` : `凌晨${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`),
-    d => `约 ${d.getHours()} 点 ${String(d.getMinutes()).padStart(2,'0')} 分`,
-    d => `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} 左右`
+    d => `around ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,
+    d => `about ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,
+    d => `around ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`,
+    d => `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} or so`
   ];
 
   // estimate minute slots between 22:00 and 01:00 (inclusive) => 180 minutes
@@ -192,8 +319,6 @@ async function loadConfigAndInitRange() {
           return;
         }
       }catch(e){ /* ignore, fallback */ }
-      // No KPs store available in IndexedDB. Do not attempt to fetch local files (file:// may be blocked).
-      // Resolve with empty map — callers should handle missing names gracefully.
       resolve(kpsMap);
     });
   }
@@ -302,7 +427,8 @@ async function loadConfigAndInitRange() {
       'category': 'Category Distribution',
       'trend': 'Task Completion Trend',
       'tag': 'Top Tags',
-      'dailyCategory': 'Daily Category Distribution'
+      'dailyCategory': 'Daily Category Distribution',
+      'dailyMinutesLine': 'Daily Learning Minutes'
     };
     zoomChartTitle.textContent = titles[chartType] || 'Chart';
     
@@ -318,25 +444,28 @@ async function loadConfigAndInitRange() {
           zoomChart = null;
         }
         
-        // 直接复用主图的配置和创建逻辑，保持一致性
         let smallChart, chartConfig;
         switch(chartType) {
-          case 'category':
-            smallChart = categoryChart;
-            chartConfig = getCategoryChartConfig(true);
+          case 'subject':
+            smallChart = subjectChart;
+            chartConfig = getSubjectChartConfig(true);
             break;
           case 'trend':
             smallChart = trendChart;
             chartConfig = getTrendChartConfig(true);
             break;
-          case 'tag':
-            smallChart = tagChart;
-            chartConfig = getTagChartConfig(true);
+          case 'knowledgePoint':
+            smallChart = kpsChart;
+            chartConfig = getKnowledgePointChartConfig(true);
             break;
-          case 'dailyCategory':
-            smallChart = dailyCategoryChart;
-            chartConfig = getDailyCategoryChartConfig(true);
+          case 'rank':
+            smallChart = rankChart;
+            chartConfig = getRankChartConfig(true);
             break;
+         // case 'dailyMinutesLine':
+          //  smallChart = dailyMinutesChart;
+          //  chartConfig = getDailyMinutesLineConfig(true);
+          //  break;
           default:
             console.error('Unknown chart type:', chartType);
             return;
@@ -363,7 +492,6 @@ async function loadConfigAndInitRange() {
           chartConfig.options = {};
         }
         
-        // 🔧 确保 options 对象存在
         chartConfig.options = chartConfig.options || {};
         
         // 调整配置适应大图显示
@@ -451,385 +579,419 @@ async function loadConfigAndInitRange() {
     }
   }
 
-  function getCategoryChartConfig(isZoomed = false) {
-    // 这里需要访问全局的统计数据，我们假设它们存储在某个地方
-    // 实际应用中需要从renderCharts函数中获取这些数据
-    const cats = Object.keys(window.currentStats.categories).sort((a,b)=>window.currentStats.categories[b]-window.currentStats.categories[a]);
-    const catValues = cats.map(k=>window.currentStats.categories[k]);
-    
-    return {
-      type: 'pie',
-      data: {
-        labels: cats,
-        datasets: [{
-          data: catValues,
-          backgroundColor: generateColors(cats.length)
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: isZoomed ? 'right' : 'bottom',
-            labels: {
-              padding: isZoomed ? 20 : 10,
-              font: {
-                size: isZoomed ? 14 : 12
-              }
-            }
-          }
-        }
-      }
-    };
+  function formatMinutesLabel(minutes){
+    const total = Math.max(0, Math.round(minutes || 0));
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   }
 
-  function getTrendChartConfig(isZoomed = false) {
-    const dates = window.currentDates || [];
-    const trendValues = dates.map(d => window.currentStats.byDate[d] || 0);
-    const weightedCompletedValues = dates.map(d => window.currentStats.byDateWeighted && window.currentStats.byDateWeighted[d] ? window.currentStats.byDateWeighted[d] : 0);
-    const notCompletedValues = dates.map((d,i) => (trendValues[i] || 0) - (weightedCompletedValues[i] || 0));
+  function getSubjectChartConfig(isZoomed = false) {
+    const learningStats = window.currentLearningStats;
+    const entries = Object.entries(learningStats && learningStats.byCategory ? learningStats.byCategory : {})
+      .map(([name, minutes]) => ({ name, minutes }))
+      .sort((a, b) => b.minutes - a.minutes);
 
-    // 计算相对完成率
-    const totalTasksSum = dates.reduce((sum, d) => sum + (window.currentStats.byDate[d] || 0), 0);
-    const averageDailyTasks = totalTasksSum / dates.length || 1;
-    
-    const relativeCompletionRate = dates.map((d, index) => {
-      const total = window.currentStats.byDate[d] || 0;
-      const completed = window.currentStats.byDateWeighted && window.currentStats.byDateWeighted[d] ? window.currentStats.byDateWeighted[d] : 0;
-      const rawRate = total === 0 ? 0 : (completed / total);
-      const taskWeight = Math.min(total / averageDailyTasks, 1);
-      return rawRate * taskWeight;
+    const labels = entries.map(item => subjectDisplayMap[item.name] || item.name);
+    const values = entries.map(item => item.minutes);
+    const bgColors = entries.map(item => {
+      return subjectColorMap[item.name] || '#999';
     });
 
-    const rawCompletionRate = dates.map(d => {
-      const total = window.currentStats.byDate[d] || 0;
-      const completed = window.currentStats.byDateWeighted && window.currentStats.byDateWeighted[d] ? window.currentStats.byDateWeighted[d] : 0;
-      return total === 0 ? 0 : (completed / total);
-    });
-
-    return  {
-      type: 'bar',
-      data: {
-        labels: dates,
-        datasets: [
-          { 
-            label: 'Completed', 
-            data: weightedCompletedValues, 
-            backgroundColor: '#66bb6a', 
-            stack: 'stack1' 
-          },
-          { 
-            label: 'Total', 
-            data: trendValues,  
-            backgroundColor: 'rgba(160, 204, 251, 0.85)',
-            stack: 'stack1' 
-          },
-          // --- 折线1：相对完成率 (默认显示，紫色) ---
-          { 
-            label: 'Relative Completion', 
-            data: relativeCompletionRate,       
-            type: 'line', 
-            borderColor: '#cf27b0e4', 
-            backgroundColor: 'rgba(207, 39, 176, 0.1)', 
-            fill: false, 
-            tension: 0.2, 
-            pointRadius: 3,
-            yAxisID: 'y1',
-            hidden: false // 默认显示
-          },
-          // --- 折线2：原始完成率 (默认隐藏，橙色，点击图例可显示) ---
-          { 
-            label: 'Completion Rate', 
-            data: rawCompletionRate,          
-            type: 'line', 
-            borderColor: '#e94e2b', // 换个颜色区分
-            borderDash: [5, 5],     // 加个虚线，更易区分
-            backgroundColor: 'rgba(233, 78, 43, 0.1)', 
-            fill: false, 
-            tension: 0.2, 
-            pointRadius: 3,
-            yAxisID: 'y1',
-            hidden: true // 【关键】默认隐藏
-          }
-        ]
+return {
+  type: 'pie',
+  data: {
+    labels,
+    datasets: [{
+      data: values,
+      backgroundColor: bgColors
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: {
+      padding: {
+        top: 35,
+        bottom: 35,
+        left: 60,
+        right: 60
+      }
+    },
+    plugins: {
+      legend: {
+        display: false,
+        position: isZoomed ? 'right' : 'bottom',
+        labels: {
+          padding: isZoomed ? 20 : 10,
+          font: { size: isZoomed ? 14 : 12 }
+        }
       },
-      options: {
-        scales: {
-          x: { 
-            stacked: true, 
-            ticks: { maxRotation:0, minRotation:0 } 
-          },
-          y: { 
-            stacked: false, 
-            beginAtZero: true 
-          },
-          y1: {
-            position: 'right',
-            beginAtZero: true,
-            max: 1,         
-            min: 0,
-            stacked: false,
-            grid: {
-              drawOnChartArea: false
-            }
-          }
-        },
-        plugins: { 
-          legend: { position: 'bottom' } 
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.label}: ${formatMinutesLabel(ctx.raw)}`
         }
       }
     }
+  },
+  plugins: [pieLinesPlugin]
+};
   }
 
-  function getTagChartConfig(isZoomed = false) {
-    const tagEntries = Object.entries(window.currentStats.tags).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    const tagLabels = tagEntries.map(t=>t[0]);
-    const tagVals = tagEntries.map(t=>t[1]);
+  function getKnowledgePointChartConfig(isZoomed = false) {
+    const learningStats = window.currentLearningStats;
+    const entries = Object.entries(learningStats && learningStats.byKp ? learningStats.byKp : {})
+      .map(([name, minutes]) => ({ name, minutes }))
+      .sort((a, b) => b.minutes - a.minutes);
+
+    const labels = entries.map(item => item.name);
+    const values = entries.map(item => item.minutes);
+    const kpSubjectMap = learningStats ? learningStats.kpSubjectMap : {};
+    const bgColors = entries.map(item => {
+      const subjectKey = kpSubjectMap[item.name] || '';
+      return subjectColorMap[subjectKey] || '#999';
+    });
+
+    return {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: bgColors
+        }]
+      },
+      options: {layout: {
+      padding: {
+        top: 48,
+        bottom: 48,
+        left: 70,
+        right: 70
+      }
+    },
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {display: false,
+            position: isZoomed ? 'right' : 'bottom',
+            labels: {
+              padding: isZoomed ? 20 : 10,
+              font: { size: isZoomed ? 14 : 12 }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${formatMinutesLabel(ctx.raw)}`
+            }
+          }
+        }
+      },
+  plugins: [pieLinesPlugin] 
+    };
+  }
+
+  function getRankChartConfig(isZoomed = false) {
+    const learningStats = window.currentLearningStats;
+    const entries = Object.entries(learningStats && learningStats.byKp ? learningStats.byKp : {})
+      .map(([name, minutes]) => ({ name, minutes }))
+      .sort((a, b) => b.minutes - a.minutes)
+      .slice(0, 15);
+
+    const labels = entries.map(item => item.name);
+    const values = entries.map(item => item.minutes);
+    const kpSubjectMap = learningStats ? learningStats.kpSubjectMap : {};
+    const bgColors = entries.map(item => {
+      const subjectKey = kpSubjectMap[item.name] || '';
+      return subjectColorMap[subjectKey] || '#2b8be9';
+    });
 
     return {
       type: 'bar',
       data: {
-        labels: tagLabels,
+        labels,
         datasets: [{
-          label: 'Labels',
-          data: tagVals,
-          backgroundColor: '#66bb6a'
+          label: 'Learning Time',
+          data: values,
+          backgroundColor: bgColors
         }]
       },
-      options: {
+      options: {layout: {
+      padding: {
+        right: 80
+      }
+    },
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false }
-        }
-      }
-    };
-  }
-
-  function getDailyCategoryChartConfig(isZoomed = false) {
-    // 数据验证
-    const dates = window.currentDates || [];
-    const categories = window.currentStats && window.currentStats.categories ? 
-      Object.keys(window.currentStats.categories).sort() : [];
-    
-    console.log('Daily Category Chart Debug:');
-    console.log('- Dates:', dates);
-    console.log('- Categories:', categories);
-    console.log('- Current Stats Available:', !!window.currentStats);
-    console.log('- Raw Data Available:', !!window.currentRawData);
-    
-    // 如果没有数据，返回有效的空图表配置（不是null）
-    if (dates.length === 0 || categories.length === 0) {
-      console.log('No dates or categories available for daily category chart');
-      return {
-        type: 'line',  // 确保type不为undefined
-        data: {
-          labels: [],
-          datasets: []
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            title: {
-              display: true,
-              text: 'Daily Category Distribution (No Data)'
-            },
-            legend: {
-              display: false
-            }
-          },
-          scales: {
-            x: {
-              display: false
-            },
-            y: {
-              display: false
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${formatMinutesLabel(ctx.raw)}`
             }
           }
-        }
-      };
-    }
-    
-    // 准备每个类别的每日数据
-    const datasets = categories.map((category, index) => {
-      const data = dates.map(date => {
-        // 从原始数据中统计该日期该类别的任务数
-        if (window.currentRawData && window.currentRawData.items) {
-          // 更宽松的日期匹配 - 只要包含日期即可
-          return window.currentRawData.items
-            .filter(item => {
-              if (!item.date || !item.category) return false;
-              // 检查日期是否匹配（支持多种格式）
-              const itemDate = item.date.split('T')[0]; // YYYY-MM-DD格式
-              return itemDate === date && item.category === category;
-            })
-            .length;
-        }
-        return 0;
-      });
-      
-      // 只有当数据不全为0时才创建数据集
-      const hasData = data.some(value => value > 0);
-      if (!hasData) {
-        console.log(`Skipping category ${category} - no data found`);
-        return null;
-      }
-      
-      return {
-        label: subjectDisplayMap[category] || category,
-        data: data,
-        borderColor: generateColors(categories.length)[index],
-        backgroundColor: generateColors(categories.length)[index].replace('1)', '0.1)'),
-        fill: false,
-        tension: 0.3,
-        pointRadius: isZoomed ? 4 : 2
-      };
-    }).filter(dataset => dataset !== null); // 过滤掉没有数据的数据集
-
-    console.log('Final datasets for daily category chart:', datasets);
-
-    return {
-      type: 'line',  // 确保type明确指定
-      data: {
-        labels: dates,
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        },
         scales: {
           x: {
-            ticks: { maxRotation: 0, minRotation: 0 }
+            beginAtZero: true,
+            ticks: { callback: (value) => `${value}m` }
           },
           y: {
-            beginAtZero: true
-          }
-        },
-        plugins: {
-          legend: {
-            position: isZoomed ? 'right' : 'bottom',
-            labels: {
-              padding: isZoomed ? 20 : 10,
-              font: {
-                size: isZoomed ? 14 : 12
-              }
-            }
+            ticks: { autoSkip: false }
           }
         }
-      }
+      },
+  plugins: [barValueLabels]
     };
   }
 
-  function getSubjectActivityChartConfig(isZoomed = false) {
-    // 基于趋势图数据，按学科分组显示每日活动情况
+  function getDailyMinutesLineConfig(isZoomed = false) {
     const dates = window.currentDates || [];
-    
-    // 从统计数据中提取学科信息
-    const subjectData = {};
-    
-    // 遍历所有数据点，按学科分组
-    if (window.currentRawData && window.currentRawData.items) {
-      window.currentRawData.items.forEach(item => {
-        if (item.category && item.date) {
-          const subject = item.category;
-          const date = item.date.split('T')[0]; // 提取日期部分
-          
-          if (!subjectData[subject]) {
-            subjectData[subject] = {};
-          }
-          
-          if (!subjectData[subject][date]) {
-            subjectData[subject][date] = 0;
-          }
-          
-          // 根据状态分配权重
-          let weight = 0;
-          if (item.status === 'done') {
-            weight = 1;
-          } else if (item.status === 'half') {
-            weight = 0.5;
-          }
-          
-          subjectData[subject][date] += weight;
-        }
-      });
-    }
-
-    // 准备图表数据
-    const subjects = Object.keys(subjectData);
-    const datasets = subjects.map((subject, index) => {
-      const data = dates.map(date => subjectData[subject][date] || 0);
-      return {
-        label: subject,
-        data: data,
-        borderColor: generateColors(subjects.length)[index],
-        backgroundColor: generateColors(subjects.length)[index].replace('1)', '0.1)'),
-        fill: false,
-        tension: 0.3,
-        pointRadius: isZoomed ? 4 : 2
-      };
-    });
+    const learningByDate = window.currentLearningStats ? window.currentLearningStats.byDate : {};
+    const values = dates.map(d => learningByDate[d] || 0);
 
     return {
       type: 'line',
       data: {
         labels: dates,
-        datasets: datasets
+        datasets: [{
+          label: 'Learning Minutes',
+          data: values,
+          borderColor: '#d4980a',
+          backgroundColor: 'rgba(212,152,10,0.08)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 1.5,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#d4980a',
+          borderWidth: 1.8,
+        }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: {
-          x: {
-            ticks: { maxRotation: 0, minRotation: 0 }
-          },
-          y: {
-            beginAtZero: true
-          }
-        },
+        interaction: { intersect: false, mode: 'index' },
         plugins: {
-          legend: {
-            position: isZoomed ? 'right' : 'bottom',
-            labels: {
-              padding: isZoomed ? 20 : 10,
-              font: {
-                size: isZoomed ? 14 : 12
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const min = ctx.raw;
+                const h = Math.floor(min / 60);
+                const m = Math.round(min % 60);
+                return `Learning ${h}h${m}m`;
               }
             }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { maxTicksLimit: isZoomed ? 20 : 10, font: { size: 10 }, color: '#999', maxRotation: 45 },
+            grid: { color: '#f0ede6' }
+          },
+          y: {
+            title: { display: true, text: 'Minutes', font: { size: 11 }, color: '#888' },
+            ticks: { font: { size: 10 }, color: '#999', maxTicksLimit: 8 },
+            grid: { color: '#f0ede6' },
+            beginAtZero: true
           }
         }
       }
     };
   }
 
-  function renderOverviewCards(stats, relativeAvgRate = 0){
+function getTrendChartConfig(isZoomed = false) {
+  const dates = window.currentDates || [];
+  const trendValues = dates.map(d => window.currentStats.byDate[d] || 0);
+  const weightedCompletedValues = dates.map(d =>
+    window.currentStats.byDateWeighted && window.currentStats.byDateWeighted[d]
+      ? window.currentStats.byDateWeighted[d] : 0
+  );
+
+  const totalTasksSum = dates.reduce((sum, d) => sum + (window.currentStats.byDate[d] || 0), 0);
+  const averageDailyTasks = totalTasksSum / dates.length || 1;
+
+  const relativeCompletionRate = dates.map((d) => {
+    const total = window.currentStats.byDate[d] || 0;
+    const completed = window.currentStats.byDateWeighted && window.currentStats.byDateWeighted[d]
+      ? window.currentStats.byDateWeighted[d] : 0;
+    const rawRate = total === 0 ? 0 : (completed / total);
+    const taskWeight = Math.min(total / averageDailyTasks, 1);
+    return rawRate * taskWeight;
+  });
+
+  const rawCompletionRate = dates.map(d => {
+    const total = window.currentStats.byDate[d] || 0;
+    const completed = window.currentStats.byDateWeighted && window.currentStats.byDateWeighted[d]
+      ? window.currentStats.byDateWeighted[d] : 0;
+    return total === 0 ? 0 : (completed / total);
+  });
+
+  const learningByDate = window.currentLearningStats ? window.currentLearningStats.byDate : {};
+  const minutesValues = dates.map(d => learningByDate[d] || 0);
+  const enjoyByDate = window.currentLearningStats ? window.currentLearningStats.enjoyByDate : {};
+  const enjoyValues = dates.map(d => enjoyByDate[d] || 0);
+  return {
+    type: 'bar',
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: 'Completed',
+          data: weightedCompletedValues,
+          backgroundColor: 'rgba(102, 187, 106, 0.48)',
+          stack: 'stack1',
+          order: 1
+        },
+        {
+          label: 'Total',
+          data: trendValues,
+          backgroundColor: 'rgba(160, 204, 251, 0.4)',
+          stack: 'stack1',
+          order: 1
+        },
+        {
+          label: 'Relative Completion',
+          data: relativeCompletionRate,
+          type: 'line',
+          borderColor: '#cf27b0e4',
+          backgroundColor: 'rgba(207, 39, 176, 0.1)',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 3,
+          yAxisID: 'y1',
+          hidden: false,
+          order: 2
+        },
+        {
+          label: 'Completion Rate',
+          data: rawCompletionRate,
+          type: 'line',
+          borderColor: '#e94e2b',
+          borderDash: [5, 5],
+          backgroundColor: 'rgba(233, 78, 43, 0.1)',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 3,
+          yAxisID: 'y1',
+          hidden: true,
+          order: 2
+        },
+        {
+          label: 'Learning Minutes',
+          data: minutesValues,
+          type: 'line',
+          borderColor: '#e2a311',
+          backgroundColor: 'rgba(212, 151, 10, 0.15)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 1.5,
+          pointHoverRadius: 5,
+          yAxisID: 'y2',
+          hidden: false,
+          order: 6 
+        },  {
+          label: 'Enjoy Time',
+          data: enjoyValues,
+          type: 'line',
+          borderColor: '#87CEEB',
+          backgroundColor: 'rgba(135, 206, 235, 0.1)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 1.5,
+          pointHoverRadius: 5,
+          yAxisID: 'y2',
+          hidden: false,
+          order: 5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { maxRotation: 0, minRotation: 0 }
+        },
+        y: {
+          stacked: false,
+          beginAtZero: true
+        },
+        y1: {
+          position: 'right',
+          beginAtZero: true,
+          max: 1,
+          min: 0,
+          grid: {
+            drawOnChartArea: false
+          }
+        },
+        y2: {
+          position: 'right',
+          beginAtZero: true,
+          grid: {
+            drawOnChartArea: false
+          },
+          title: {
+            display: true,
+            text: 'Minutes'
+          },
+          afterFit(axis) {
+            axis.paddingRight = 40;
+          }
+        }
+      },
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              if (ctx.dataset.label === 'Learning Minutes') {
+                const min = ctx.raw;
+                const h = Math.floor(min / 60);
+                const m = Math.round(min % 60);
+                return `Learning: ${h}h ${m}m`;
+              }
+              else if (ctx.dataset.label === 'Enjoy Time') {
+                const min = ctx.raw;
+                const h = Math.floor(min / 60);
+                const m = Math.round(min % 60);
+                return `Enjoy: ${h}h ${m}m`;
+              }
+              return ctx.dataset.label + ': ' + ctx.formattedValue;
+            }
+          }
+        }
+      }
+    }
+  };
+}
+
+  function renderOverviewCards(stats, relativeAvgRate = 0, learningStats = null){
     const totalTasks = stats.totalTasks || stats.total || 0;
     const score = stats.score || 0;
     const totalPoints = stats.totalPoints || (totalTasks * 2);
     const rate = totalPoints===0 ? 0 : Math.round((score/totalPoints)*100);
+    const actualLearningStats = learningStats || window.currentLearningStats || {};
+    const totalLearningMinutes = Object.values(actualLearningStats.byDate || {}).reduce((sum, value) => sum + (value || 0), 0);
+    const activeDays = Object.keys(actualLearningStats.byDate || {}).length;
+    const avgLearningMinutes = activeDays > 0 ? Math.round(totalLearningMinutes / activeDays) : 0;
+
     overviewCards.innerHTML = '';
     const tpl = (title, val) => {
       const c = document.createElement('div'); c.className='card';
       c.innerHTML = `<h3>${title}</h3><p>${val}</p>`; return c;
     };
-    // Do not show raw score/full as requested — show total tasks and a weighted completion rate only
+
     overviewCards.appendChild(tpl('Total Tasks', totalTasks));
-    
-    // 显示"原来%/新%"格式
+
     const originalPercent = rate;
     const newPercent = Math.round(relativeAvgRate * 100) || 0;
     const completionRateDisplay = `${originalPercent}%/${newPercent}%`;
     overviewCards.appendChild(tpl('Completion Rate', completionRateDisplay));
-    
-    // category proportions (show top 4)
-  const catBreakdown = Object.entries(stats.categories)
-  .sort((a,b) => b[1] - a[1])
-  .slice(0,4)
-  .map(([k,v]) => `${subjectDisplayMap[k] || k}:${v}`)
-  .join(' | ');    overviewCards.appendChild(tpl('Category Distribution', catBreakdown || '-'));
+
+    overviewCards.appendChild(tpl('Learning Time', `${formatMinutesLabel(totalLearningMinutes)} / ${formatMinutesLabel(avgLearningMinutes)}/day`));
   }
 
   function renderTable(items){
@@ -838,13 +1000,13 @@ async function loadConfigAndInitRange() {
     for(const it of items){
       const tr = document.createElement('tr');
       const statusText = it.status === 1 ? 'Done' : (it.status === 0 ? 'Half' : (it.status === -1 ? 'Fail' : 'Pending'));
-      // separate KPS name column and content
       const kpName = it.kpsId ? ((kpsMap && kpsMap[it.kpsId]) ? kpsMap[it.kpsId] : `[KPS:${it.kpsId}]`) : '';
       const content = it.content || '';
       const statusClass = it.status === 1 ? 'status-done' : (it.status === 0 ? 'status-half' : (it.status === -1 ? 'status-fail' : ''));
       const statusHtml = `<span class="status-badge ${statusClass}">${statusText}</span>`;
-  const categoryDisplay = subjectDisplayMap[it.category] || it.category || '';
-tr.innerHTML = `<td>${it.date||''}</td><td>${categoryDisplay}</td>...`;      detailsTbody.appendChild(tr);
+      const categoryDisplay = subjectDisplayMap[it.category] || it.category || '';
+      tr.innerHTML = `<td>${it.date||''}</td><td>${escapeHtml(categoryDisplay)}</td><td>${escapeHtml(it.tag||'')}</td><td>${escapeHtml(kpName)}</td><td class="content-cell">${escapeHtml(content)}</td><td>${statusHtml}</td>`;
+      detailsTbody.appendChild(tr);
     }
   }
 
@@ -876,269 +1038,425 @@ tr.innerHTML = `<td>${it.date||''}</td><td>${categoryDisplay}</td>...`;      det
     endDateEl.addEventListener('input', debounceDateChange);
   }
 
+  async function fetchLearningLogs(startISO, endISO){
+    const API_BASE = 'https://on.ordylan.com/MyKPs/api/NNTT_api.php?proj=MyKPs';
+    const url = `${API_BASE}&action=getLogs&start=${startISO}&end=${endISO}`;
+    const token = localStorage.getItem('ON_MyKPs_Token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'KaoYanBiSheng ' + token;
+
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      const json = await res.json();
+      if (json && json.error) throw new Error(json.error);
+      return Array.isArray(json) ? json : (json && Array.isArray(json.logs) ? json.logs : []);
+    } catch (err) {
+      console.warn('Learning API unavailable, falling back to task data.', err);
+      return [];
+    }
+  }
+
   // main load flow
   async function loadAndRender(){
     const s = startDateEl.value; const e = endDateEl.value;
     if(!s || !e){ alert('Please select start and end dates'); return; }
     if(s > e){ alert('Start date cannot be later than end date'); return; }
     try{
-      // Ensure KPs mapping is loaded before rendering so names are available
       try{ await loadKpsMap(); }catch(e){ /* ignore */ }
-      const items = await fetchRange(s, e);
-      
-      // 🔧 保存原始数据，供每日类别图使用
-      window.currentRawData = { items: items };
-      
+      const [items, logs] = await Promise.all([fetchRange(s, e), fetchLearningLogs(s, e)]);
+
+      window.currentRawData = { items, logs };
       const summary = summarizeRecords(items, s, e);
-      renderOverviewCards(summary.stats, summary.relativeAvgRate); // 传递相对完成率平均值
-      renderCharts(summary);
+      const learningStats = buildLearningStats(logs, summary.dates);
+      window.currentLearningStats = learningStats;
+      renderOverviewCards(summary.stats, summary.relativeAvgRate, learningStats);
+      renderActiveTimeChart(logs);
+      renderCharts(summary, logs);
+      renderHeatmap(logs, s, e);
       renderTable(items);
-      // generate automatic study suggestions: pass date range so we can inspect MyLearningLogs
-      try{ await generateStudySuggestions(items, s, e); }catch(err){ console.warn('suggestions failed', err); }
     }catch(err){ console.error(err); alert('Failed to load data, please check console'); }
   }
 
-  function renderCharts(statsObj){
-    const { stats, dates } = statsObj;
-    // 存储当前统计数据供放大功能使用
-    window.currentStats = stats;
-    window.currentDates = dates;
-    
-    // Make sure canvas elements are sized for devicePixelRatio to prevent blurring
-    function scaleCanvasForDisplay(canvas){
-      if(!canvas) return;
-      const ratio = window.devicePixelRatio || 1;
-      // clientWidth/Height are CSS pixels; set actual pixel size to CSS * ratio
-      const cssW = canvas.clientWidth || canvas.parentElement.clientWidth || 300;
-      const cssH = canvas.clientHeight || Math.max(150, cssW * 0.5);
-      // only update if needed
-      if(canvas.width !== Math.floor(cssW * ratio) || canvas.height !== Math.floor(cssH * ratio)){
-        canvas.style.width = cssW + 'px';
-        canvas.style.height = cssH + 'px';
-        canvas.width = Math.floor(cssW * ratio);
-        canvas.height = Math.floor(cssH * ratio);
-        
-        // 应用上下文缩放以保持清晰度
-        const ctx = canvas.getContext('2d');
-        ctx.scale(ratio, ratio);
-      }
-    }
-    // apply to all canvases
-    scaleCanvasForDisplay(categoryCanvas);
-    scaleCanvasForDisplay(trendCanvas);
-    scaleCanvasForDisplay(tagCanvas);
-    scaleCanvasForDisplay(dailyCategoryCanvas);
+  function getLogTimeRange(item) {
+    if (!item) return null;
+    const startValue = item.a || item.start || item.startTime || item.startedAt || item.timestamp || item.time;
+    const endValue = item.b || item.end || item.endTime || item.finishedAt;
+    if (!startValue) return null;
+    const start = new Date(startValue);
+    if (Number.isNaN(start.getTime())) return null;
+    const end = endValue ? new Date(endValue) : start;
+    return { start, end: Number.isNaN(end.getTime()) ? start : end };
+  }
 
-    // Category pie chart (use sorted labels)
-    const cats = Object.keys(stats.categories).sort((a,b)=>stats.categories[b]-stats.categories[a]);
-    const catLabels = cats.map(k => subjectDisplayMap[k] || k);
-    const catValues = cats.map(k=>stats.categories[k]);
-    if(categoryChart) categoryChart.destroy();
-    categoryChart = new Chart(categoryCtx, { 
-      type:'pie', 
-      data:{ 
-        labels:catLabels, 
-        datasets:[{ 
-          data:catValues, 
-          backgroundColor: generateColors(cats.length) 
-        }] 
-      }, 
-      options:{
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins:{legend:{position:'bottom'}},
-        // 添加resize配置
-        onResize: function(chart, size) {
-          // 图表尺寸改变时的回调
-          console.log('Chart resized:', size);
+  function buildActiveTimeData(items = []) {
+    const learningMinutes = Array(144).fill(0);
+    const enjoyMinutes = Array(144).fill(0);
+    (items || []).forEach(item => {
+      const range = getLogTimeRange(item);
+      if (!range) return;
+      const category = String(item.subject || item.category || item.s || 'other').toLowerCase();
+      const minutes = category === 'enjoy' ? enjoyMinutes : learningMinutes;
+      const start = range.start;
+      const end = range.end > start
+        ? range.end
+        : new Date(start.getTime() + extractLearningMinutes(item) * 60000);
+
+      const firstDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const lastDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      for (const day = new Date(firstDay); day <= lastDay; day.setDate(day.getDate() + 1)) {
+        for (let slot = 0; slot < minutes.length; slot++) {
+          const slotStart = new Date(day);
+          slotStart.setMinutes(slot * 10);
+          const slotEnd = new Date(slotStart.getTime() + 10 * 60000);
+          const overlapStart = Math.max(start.getTime(), slotStart.getTime());
+          const overlapEnd = Math.min(end.getTime(), slotEnd.getTime());
+          if (overlapEnd > overlapStart) {
+            minutes[slot] += (overlapEnd - overlapStart) / 60000;
+          }
         }
-      } 
+      }
+    });
+    return { learningMinutes, enjoyMinutes };
+  }
+
+  function renderActiveTimeChart(logs = []) {
+    window.currentActiveTimeData = buildActiveTimeData(logs);
+    const summary = document.getElementById('activeTimeSummary');
+    if (summary) {
+      const learningTotal = window.currentActiveTimeData.learningMinutes.reduce((sum, value) => sum + value, 0);
+      const enjoyTotal = window.currentActiveTimeData.enjoyMinutes.reduce((sum, value) => sum + value, 0);
+      summary.textContent = `${formatMinutesLabel(learningTotal)} learning / ${formatMinutesLabel(enjoyTotal)} enjoy`;
+    }
+  }
+
+  function getActiveTimeChartConfig() {
+    const activeTimeData = window.currentActiveTimeData || {
+      learningMinutes: Array(144).fill(0),
+      enjoyMinutes: Array(144).fill(0)
+    };
+    const learningMinutes = activeTimeData.learningMinutes;
+    const enjoyMinutes = activeTimeData.enjoyMinutes;
+    const maxSlotMinutes = Math.max(
+      1,
+      ...learningMinutes.map((value, index) => value + enjoyMinutes[index])
+    );
+    const labels = learningMinutes.map((_, index) => {
+      const hour = Math.floor(index / 6);
+      const minute = (index % 6) * 10;
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    });
+    const learningColors = learningMinutes.map(value => {
+      const intensity = value / maxSlotMinutes;
+      return `rgba(200, 152, 10, ${0.4 + intensity * 0.6})`;
+    });
+    const enjoyColors = enjoyMinutes.map(value => {
+      const intensity = value / maxSlotMinutes;
+      return `rgba(214, 63, 55, ${0.4 + intensity * 0.6})`;
     });
 
-    // Trend chart: dates vs byDate
-    const trendValues = dates.map(d=>stats.byDate[d]||0);
-    // 使用预计算的加权完成分数
-    const weightedCompletedValues = dates.map(d => stats.byDateWeighted && stats.byDateWeighted[d] ? stats.byDateWeighted[d] : 0);
-    const notCompletedValues = dates.map((d,i) => (trendValues[i] || 0) - (weightedCompletedValues[i] || 0));
-
-    // ========== 计算相对完成率 ==========
-    // 1. 计算「基准任务量」：所有日期的平均总任务数
-    const totalTasksSum = dates.reduce((sum, d) => sum + (stats.byDate[d] || 0), 0);
-    const averageDailyTasks = totalTasksSum / dates.length || 1; // 防止除以0
-
-    // 2. 计算相对完成率数据
-    const relativeCompletionRate = dates.map((d, index) => {
-        const total = stats.byDate[d] || 0;
-        const completed = stats.byDateWeighted && stats.byDateWeighted[d] ? stats.byDateWeighted[d] : 0;
-        const rawRate = total === 0 ? 0 : (completed / total);
-        const taskWeight = Math.min(total / averageDailyTasks, 1);
-        return rawRate * taskWeight;
-    });
-
-    // 3. 计算【原始】完成率数据 (用于对比)
-    const rawCompletionRate = dates.map(d => {
-        const total = stats.byDate[d] || 0;
-        const completed = stats.byDateWeighted && stats.byDateWeighted[d] ? stats.byDateWeighted[d] : 0;
-        return total === 0 ? 0 : (completed / total);
-    });
-    // ======================================
-
-    if(trendChart) trendChart.destroy();
-
-    trendChart = new Chart(trendCtx, {
+    return {
       type: 'bar',
       data: {
-        labels: dates,
+        labels,
         datasets: [
-          { 
-            label: 'Completed', 
-            data: weightedCompletedValues, 
-            backgroundColor: '#66bb6a', 
-            stack: 'stack1' 
+          {
+            type: 'bar',
+            label: 'Learning Minutes',
+            data: learningMinutes.map(value => [0, Math.min(maxSlotMinutes, value)]),
+            backgroundColor: learningColors,
+            borderWidth: 0,
+            grouped: false,
+            order: 1
           },
-          { 
-            label: 'Total', 
-            data: trendValues,  
-            backgroundColor: 'rgba(160, 204, 251, 0.85)',
-            stack: 'stack1' 
-          },
-          // --- 折线1：相对完成率 (默认显示，紫色) ---
-          { 
-            label: 'Relative Completion', 
-            data: relativeCompletionRate,       
-            type: 'line', 
-            borderColor: '#cf27b0e4', 
-            backgroundColor: 'rgba(207, 39, 176, 0.1)', 
-            fill: false, 
-            tension: 0.2, 
-            pointRadius: 3,
-            yAxisID: 'y1',
-            hidden: false // 默认显示
-          },
-          // --- 折线2：原始完成率 (默认隐藏，橙色，点击图例可显示) ---
-          { 
-            label: 'Completion Rate', 
-            data: rawCompletionRate,          
-            type: 'line', 
-            borderColor: '#e94e2b', // 换个颜色区分
-            borderDash: [5, 5],     // 加个虚线，更易区分
-            backgroundColor: 'rgba(233, 78, 43, 0.1)', 
-            fill: false, 
-            tension: 0.2, 
-            pointRadius: 3,
-            yAxisID: 'y1',
-            hidden: true // 【关键】默认隐藏
+          {
+            type: 'bar',
+            label: 'Enjoy Minutes',
+            data: enjoyMinutes.map(value => [
+              Math.max(0, maxSlotMinutes - Math.min(maxSlotMinutes, value)),
+              maxSlotMinutes
+            ]),
+            backgroundColor: enjoyColors,
+            borderWidth: 0,
+            grouped: false,
+            order: 2
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: {
-          x: { 
-            stacked: true, 
-            ticks: { maxRotation:0, minRotation:0 } 
-          },
-          y: { 
-            stacked: false, 
-            beginAtZero: true 
-          },
-          y1: {
-            position: 'right',
-            beginAtZero: true,
-            max: 1,         
-            min: 0,
-            stacked: false,
-            grid: {
-              drawOnChartArea: false
+        plugins: {
+          legend: { display: true, position: 'top', labels: { usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              label: context => {
+                const value = Array.isArray(context.raw)
+                  ? Math.max(0, context.raw[1] - context.raw[0])
+                  : context.raw;
+                return `${context.dataset.label}: ${formatMinutesLabel(value)}`;
+              }
             }
           }
         },
-        plugins: { 
-          legend: { position: 'bottom' } 
-        },
-        // 添加resize配置
-        onResize: function(chart, size) {
-          console.log('Trend chart resized:', size);
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { autoSkip: false, maxRotation: 0, callback: (_, index) => index % 6 === 0 ? labels[index] : '' }
+          },
+          y: {
+            beginAtZero: true,
+            max: maxSlotMinutes,
+            ticks: { precision: 0 },
+            title: { display: true, text: 'Minutes' }
+          }
+        }
+      }
+    };
+  }
+
+  function renderCharts(statsObj, logs = []){
+    const { stats, dates } = statsObj;
+    window.currentStats = stats;
+    window.currentDates = dates;
+    window.currentLearningStats = buildLearningStats(logs, dates);
+    
+    // 确保所有出现的科目都有颜色
+    const learningStats = window.currentLearningStats;
+    if (learningStats && learningStats.byCategory) {
+      Object.keys(learningStats.byCategory).forEach(subj => {
+        if (!subjectColorMap[subj]) {
+          subjectColorMap[subj] = defaultColorPool[colorPoolIndex % defaultColorPool.length];
+          colorPoolIndex++;
+        }
+      });
+    }
+
+    function scaleCanvasForDisplay(canvas){
+      if(!canvas) return;
+      const ratio = window.devicePixelRatio || 1;
+      const cssW = canvas.clientWidth || canvas.parentElement.clientWidth || 300;
+      const cssH = canvas.clientHeight || Math.max(150, cssW * 0.5);
+      if(canvas.width !== Math.floor(cssW * ratio) || canvas.height !== Math.floor(cssH * ratio)){
+        canvas.style.width = cssW + 'px';
+        canvas.style.height = cssH + 'px';
+        canvas.width = Math.floor(cssW * ratio);
+        canvas.height = Math.floor(cssH * ratio);
+        const ctx = canvas.getContext('2d');
+        ctx.scale(ratio, ratio);
+      }
+    }
+    scaleCanvasForDisplay(subjectCanvas);
+    scaleCanvasForDisplay(trendCanvas);
+    scaleCanvasForDisplay(activeTimeCanvas);
+    scaleCanvasForDisplay(kpsCanvas);
+    scaleCanvasForDisplay(rankCanvas);
+    //if (dailyMinutesCanvas) scaleCanvasForDisplay(dailyMinutesCanvas);
+
+    if(subjectChart) subjectChart.destroy();
+    subjectChart = new Chart(subjectCtx, getSubjectChartConfig());
+
+    if(trendChart) trendChart.destroy();
+    trendChart = new Chart(trendCtx, getTrendChartConfig());
+
+    if(activeTimeChart) activeTimeChart.destroy();
+    activeTimeChart = new Chart(activeTimeCtx, getActiveTimeChartConfig());
+
+    if(kpsChart) kpsChart.destroy();
+    kpsChart = new Chart(kpsCtx, getKnowledgePointChartConfig());
+
+    if(rankChart) rankChart.destroy();
+    rankChart = new Chart(rankCtx, getRankChartConfig());
+
+  //  if (dailyMinutesCtx) {
+  //    if (dailyMinutesChart) dailyMinutesChart.destroy();
+   //   dailyMinutesChart = new Chart(dailyMinutesCtx, getDailyMinutesLineConfig());
+   // }
+  }
+
+  function buildLearningStats(items = [], dates = []){
+    const byDate = {};
+     const enjoyByDate = {};  
+    const byCategory = {};
+    const byKp = {};
+    const kpSubjectMap = {};
+
+    dates.forEach(date => { byDate[date] = 0;enjoyByDate[date] = 0; });
+
+    (items || []).forEach(item => {
+      const date = getRecordDateKey(item);
+      const minutes = extractLearningMinutes(item);
+
+      const category = String(item.subject || item.category || item.s || 'other');
+       const isEnjoy = category.toLowerCase() === 'enjoy';
+       
+      if (date) {
+        if (isEnjoy) {
+          enjoyByDate[date] = (enjoyByDate[date] || 0) + minutes;   // 新增
+        } else {
+          byDate[date] = (byDate[date] || 0) + minutes;
+        }
+      }
+      byCategory[category] = (byCategory[category] || 0) + minutes;
+
+        if (!isEnjoy) {
+        const kpKey = item.kpsId || item.kp || item.topicId || item.topic || item.k || item.name || 'Unknown';
+        const kpName = (kpsMap && kpsMap[kpKey]) ? kpsMap[kpKey] : String(kpKey);
+        byKp[kpName] = (byKp[kpName] || 0) + minutes;
+        if (!kpSubjectMap[kpName]) {
+          kpSubjectMap[kpName] = category;
         }
       }
     });
 
-    // Tag bar chart (top tags)
-    const tagEntries = Object.entries(stats.tags).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    const tagLabels = tagEntries.map(t=>t[0]);
-    const tagVals = tagEntries.map(t=>t[1]);
-    if(tagChart) tagChart.destroy();
-    tagChart = new Chart(tagCtx, { 
-      type:'bar', 
-      data:{ 
-        labels:tagLabels, 
-        datasets:[{ 
-          label:'Labels', 
-          data:tagVals, 
-          backgroundColor:'#66bb6a' 
-        }] 
-      }, 
-      options:{
-        indexAxis:'y', 
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins:{legend:{display:false}},
-        // 添加resize配置
-        onResize: function(chart, size) {
-          console.log('Tag chart resized:', size);
-        }
-      } 
-    });
+    return { byDate, enjoyByDate, byCategory, byKp, kpSubjectMap };  }
 
-    // Daily category distribution chart
-    if(dailyCategoryChart) dailyCategoryChart.destroy();
-    dailyCategoryChart = new Chart(dailyCategoryCtx, getDailyCategoryChartConfig());
+  function getRecordDateKey(item) {
+    if (!item) return '';
+    if (item.date) return String(item.date).split('T')[0];
+    if (item.a) return String(item.a).split('T')[0];
+    if (item.start) return String(item.start).split('T')[0];
+    if (item.timestamp) return String(item.timestamp).split('T')[0];
+    return '';
   }
 
-  // Generate study suggestions: recommend KPs (from tasks) that were NOT studied or least studied in the selected date range
-  async function generateStudySuggestions(items, startISO, endISO){
-    const container = document.getElementById('suggestionsContent');
-    if(!container) return;
-    try{
-      const kpsInItems = Array.from(new Set((items||[]).map(it=>it.kpsId).filter(Boolean)));
-      if(kpsInItems.length === 0){ container.innerHTML = 'No KPs associated with tasks in this period, no suggestions based on study records.'; return; }
+  function extractLearningMinutes(item) {
+    const candidates = ['durationMinutes', 'duration', 'minutes', 'studyMinutes', 'learningMinutes', 'minutesSpent', 'timeSpent', 'studyTime'];
+    const timeKeys = ['a', 'b', 'start', 'end', 'startTime', 'endTime', 'startedAt', 'finishedAt'];
 
-      // load learning logs (MyLearningLogs) and count topics in the date range
-      let logs = [];
-      try{
-        if(db && db.objectStoreNames && db.objectStoreNames.contains('MyLearningLogs')){
-          const tx = db.transaction(['MyLearningLogs'],'readonly');
-          const store = tx.objectStore('MyLearningLogs');
-          const req = store.getAll();
-          logs = await new Promise((res,rej)=>{ req.onsuccess = ()=>res(req.result||[]); req.onerror = ()=>res([]); });
+    for (const key of candidates) {
+      const raw = item[key];
+      if (raw === null || raw === undefined || raw === '') continue;
+      if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(1, Math.round(raw));
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (/^\d+(h|m|hr|min|mins|minute|minutes)$/i.test(trimmed)) {
+          const match = trimmed.match(/(\d+)/g) || [];
+          const values = match.map(Number);
+          if (values.length > 0) {
+            const total = values.reduce((sum, value) => sum + value, 0);
+            return Math.max(1, Math.round(total));
+          }
         }
-      }catch(e){ logs = []; }
+        const numeric = Number(trimmed.replace(/[^0-9.]/g, ''));
+        if (Number.isFinite(numeric)) return Math.max(1, Math.round(numeric));
+      }
+    }
 
-      // filter logs by timestamp within start..end (inclusive)
-      const s = new Date(startISO);
-      const e = new Date(endISO); e.setHours(23,59,59,999);
-      const logsInRange = logs.filter(l=>{
-        const t = l.timestamp ? new Date(l.timestamp) : null;
-        return t && t >= s && t <= e;
+    for (const key of timeKeys) {
+      const start = item[key];
+      if (!start) continue;
+      const endKey = key === 'a' ? 'b' : key === 'b' ? 'a' : (key.includes('start') ? 'end' : key.includes('end') ? 'start' : null);
+      if (endKey) {
+        const endVal = item[endKey];
+        if (endVal) {
+          const startDate = new Date(start);
+          const endDate = new Date(endVal);
+          if (!Number.isNaN(startDate) && !Number.isNaN(endDate)) {
+            const diffMinutes = Math.max(1, Math.round((endDate - startDate) / 60000));
+            return diffMinutes;
+          }
+        }
+      }
+    }
+
+    return 1;
+  }
+
+  function parseDateOnly(value) {
+    if (!value) return null;
+    const text = String(value).split('T')[0];
+    const [year, month, day] = text.split('-').map(Number);
+    if (![year, month, day].every(Number.isFinite)) return null;
+    return new Date(year, month - 1, day);
+  }
+
+  function renderHeatmap(items = [], startISO, endISO) {
+    const container = document.getElementById('heatmapContainer');
+    const monthsRow = document.getElementById('heatmapMonths');
+    const labelsLeft = document.getElementById('heatmapLabels');
+    const weeksEl = document.getElementById('heatmapWeeks');
+    if (!container || !monthsRow || !labelsLeft || !weeksEl) return;
+
+    const start = parseDateOnly(startISO);
+    const end = parseDateOnly(endISO);
+    if (!start || !end) return;
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const durationByDate = {};
+
+    (items || []).forEach(item => {
+      const date = getRecordDateKey(item);
+      if (!date) return;
+      const category = String(item.subject || item.category || item.s || 'other');
+      if (category.toLowerCase() === 'enjoy') return;
+      const minutes = extractLearningMinutes(item);
+      const key = isoDate(parseDateOnly(date));
+      durationByDate[key] = (durationByDate[key] || 0) + minutes;
+    });
+
+    const heatStart = new Date(start);
+    const startDay = heatStart.getDay();
+    heatStart.setDate(heatStart.getDate() - startDay);
+
+    const heatEnd = new Date(end);
+    const endDay = heatEnd.getDay();
+    heatEnd.setDate(heatEnd.getDate() + (6 - endDay));
+
+    const weeks = [];
+    let weekStart = new Date(heatStart);
+    while (weekStart <= heatEnd) {
+      const cells = [];
+      for (let offset = 0; offset < 7; offset++) {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + offset);
+        const key = isoDate(day);
+        const minutes = durationByDate[key] || 0;
+        cells.push({ date: key, minutes, inRange: day >= start && day <= end });
+      }
+      weeks.push(cells);
+      weekStart.setDate(weekStart.getDate() + 7);
+    }
+
+    labelsLeft.innerHTML = dayNames.map(name => `<span>${name}</span>`).join('');
+    monthsRow.innerHTML = '';
+    weeksEl.innerHTML = '';
+
+    weeks.forEach((week, weekIndex) => {
+      const firstInRange = week.find(day => day.inRange);
+      const monthIndex = firstInRange ? new Date(parseDateOnly(firstInRange.date)).getMonth() : new Date(parseDateOnly(week[0].date)).getMonth();
+      const month = monthNames[monthIndex];
+      const prevMonthIndex = weeks[weekIndex - 1] ? new Date(parseDateOnly(weeks[weekIndex - 1].find(day => day.inRange)?.date || weeks[weekIndex - 1][0].date)).getMonth() : -1;
+      if (weekIndex === 0 || monthIndex !== prevMonthIndex) {
+        const monthLabel = document.createElement('span');
+        monthLabel.textContent = month;
+        monthLabel.style.left = `${weekIndex * 17}px`;
+        monthsRow.appendChild(monthLabel);
+      }
+
+      const weekCol = document.createElement('div');
+      weekCol.className = 'heatmap-week-col';
+      week.forEach(day => {
+        const cell = document.createElement('div');
+        cell.className = 'heatmap-cell';
+        if (!day.inRange) {
+          cell.classList.add('empty');
+        } else {
+          const level = day.minutes <= 123 ? 0 
+             : day.minutes <= 288 ? 1 
+             : day.minutes <= 466 ? 2 
+             : day.minutes <= 600 ? 3 
+             : 4;
+          cell.classList.add(`level-${level}`);
+        }
+        weekCol.appendChild(cell);
       });
-
-      // count studies per topicId
-      const studyCounts = {};
-      logsInRange.forEach(l=>{ if(l.topicId) studyCounts[l.topicId] = (studyCounts[l.topicId]||0) + 1; });
-
-      // For each kpsId present in tasks, get study count (default 0)
-      const list = kpsInItems.map(id => ({ id, name: (kpsMap && kpsMap[id]) ? kpsMap[id] : id, count: studyCounts[id] || 0 }));
-      // sort ascending (least studied first), show top 6
-      list.sort((a,b)=> a.count - b.count || a.name.localeCompare(b.name));
-      const top = list.slice(0,6);
-
-      if(top.length === 0){ container.innerHTML = 'No suggestions at the moment (no learning records found).'; return; }
-
-      const parts = ['<strong>Recommended KPs for focused review (the KPs studied the least in the tasks of this cycle):</strong>'];
-      top.forEach((it,i)=> parts.push(`${i+1}. ${escapeHtml(it.name)} (Study times ${it.count}) `));
-      container.innerHTML = parts.join('<br>');
-    }catch(err){ console.warn('generateStudySuggestions error', err); container.innerHTML = 'Failed to generate suggestions, please check the console.'; }
+      weeksEl.appendChild(weekCol);
+    });
   }
 
   function generateColors(n){
@@ -1149,12 +1467,12 @@ tr.innerHTML = `<td>${it.date||''}</td><td>${categoryDisplay}</td>...`;      det
   }
 
   function exportCSV(items){
-    const headers = ['日期','分类','标签','知识点','内容','状态'];
+    const headers = ['Date','Category','Tag','Knowledge Point','Content','Status'];
     const rows = items.map(it => {
       const kpName = it.kpsId ? ((kpsMap && kpsMap[it.kpsId]) ? kpsMap[it.kpsId] : `[KPS:${it.kpsId}]`) : '';
       const content = it.content || '';
       const categoryDisplay = subjectDisplayMap[it.category] || it.category || '';
-      return [it.date||'', categoryDisplay, (it.tag||''), kpName, content, (it.status===1?'完成':(it.status===0?'半完成':(it.status===-1?'失败':'未完成')))];
+      return [it.date||'', categoryDisplay, (it.tag||''), kpName, content, (it.status===1?'Done':(it.status===0?'Half':(it.status===-1?'Fail':'Pending')))]
     });
     const all = [headers].concat(rows).map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob([all], { type:'text/csv;charset=utf-8;' });
@@ -1357,8 +1675,6 @@ case 'all':
 
   // load KPs map if DB available
   (async function(){ try{ await loadKpsMap(); }catch(e){ /* ignore */ }})();
-  // start quotes after init
-  try{ startQuoteCarousel(); }catch(e){ /* ignore if elements missing */ }
   
   // 初始化放大功能
   initZoomFunctionality();
@@ -1369,9 +1685,12 @@ case 'all':
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(function() {
       // 使用Chart.js内置的resize方法调整主图表尺寸
-      if (categoryChart) categoryChart.resize();
+      if (subjectChart) subjectChart.resize();
       if (trendChart) trendChart.resize();
-      if (tagChart) tagChart.resize();
+      if (activeTimeChart) activeTimeChart.resize();
+      if (kpsChart) kpsChart.resize();
+      if (rankChart) rankChart.resize();
+      //if (dailyMinutesChart) dailyMinutesChart.resize();
       
       // 如果放大模态框打开，重新创建放大图表
       if (zoomModal.style.display === 'block' && zoomChart) {
@@ -1449,10 +1768,11 @@ case 'all':
   // 获取图表标题的辅助函数
   function getChartTitle(chartType) {
     const titles = {
-      'category': 'Category Distribution',
-      'trend': 'Task Completion Trend',
-      'tag': 'Top Tags',
-      'dailyCategory': 'Daily Category Distribution'
+      'subject': 'Subject Learning Time',
+      'trend': 'Daily Learning Trend',
+      'knowledgePoint': 'Knowledge Point Learning Time',
+      'rank': 'Top 15 Knowledge Points',
+      'dailyMinutesLine': 'Daily Learning Minutes'
     };
     return titles[chartType] || 'Unknown Chart';
   }
