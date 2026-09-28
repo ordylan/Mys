@@ -1,0 +1,35 @@
+每日任务: 4完成3即算当日任务完成! 可领取日礼包(不考虑礼包内有啥)+增加连续天数 也可以用免笺waiver_slip x1 代替任务完成
+注意下面提到的时间是"判定标准"不是"活动active时段"!
+日任务(早5更新)
+cumulative累计任务:完成在x-x(例如8:00-24:00)完成subject=xx,tag=xx,累计xx分钟  不填写表示不限制
+persistent坚持任务: 完成在x-x(例如8:00-24:00)完成subject=xx,tag=xx,不间断xx分钟,达x次  不填写表示不限制
+entertainment娱乐任务: 在当日学习时长达到x后,完成subject=enjoy,且enjoy时长为[5,40](可自定义)
+fulfillment履约任务: subject=xx,tag=xx任务相对完成率达到x%
+love_learning1我爱学习:今日娱乐时长 ≤ 学习时长的x%,学习时长达到xmin
+love_learning2我爱学习:任务相对完成率达到x%
+周任务(周一早5更新) 
+累计任务:本周完成subject=xx,tag=xx,累计xx分钟  不填写表示不限制
+坚持任务: 本周完成subject=xx,tag=xx,不间断xx分钟,达x次  不填写表示不限制
+我爱学习:本周娱乐时长 ≤ 学习时长的x%,学习时长达到xmin
+履约任务1: 本周任务总相对完成率达到x%
+履约任务2: 本周x天的单日任务相对完成率达到x%
+爱学习2. 多日坚持
+
+
+
+
+
+INSERT INTO `Act_prop_def` (`type_id`, `code`, `name`, `description`, `icon`, `quality`, `status`) VALUES
+(3, 'daily_reward_box', 'Daily Reward Box', 'When the day turns, a box is left for you. It hums of knowledge and reward. Open it for Parameters — and, rarely, something exquisite.', '/icons/daily_reward_box.png', 2, 1),
+(6, 'daily_streak', 'Daily Streak', 'Internal counter for consecutive completed daily activities.', NULL, 1, 1),
+(3, 'weekly_reward_box', 'Weekly Reward Box', 'Sealed with the sigil of seven days. It holds a greater bounty, but only for those who learning hard. Open it for more Parameters — and, sometimes, something exquisite.', '/icons/weekly_reward_box.png', 3, 1),
+(4, 'waiver_slip', 'Waiver Slip', 'A fragile slip of paper imbued with ancient magic. It can excuse one day\'s task, but dissolves into mist after use.', '/icons/waiver_slip.png', 4, 1),
+(1, 'parameter', 'Parameter', 'An unseen measure — not chosen, but selected by the world you meet. It cannot be held, only inferred through outcomes. Adapt, and what is selected may shift.', '/icons/parameter.png', 3, 1)
+
+
+1货币
+2活动货币
+3礼盒
+4作用
+5藏品
+6特殊内部作用

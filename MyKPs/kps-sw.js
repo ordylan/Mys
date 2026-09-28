@@ -1,10 +1,10 @@
-const CACHE_NAME = 'MyKps-newooo';
+const CACHE_NAME = 'MyKps-newooaaa-v';
 const urlsToCache = [
   '/MyKPs/',
-  '/MyKPs/weekly-report.html',
+  //'/MyKPs/weekly-report.html',
   '/MyKPs/manifest.json',
   '/MyKPs/MyKPs.ico',
-  '/MyKPs/html2canvas.min.js',
+  //'/MyKPs/html2canvas.min.js',
   '/MyKPs/ToDos.php',
   '/MyKPs/daily-plans.js',
   '/MyKPs/landscape.js',
@@ -13,7 +13,10 @@ const urlsToCache = [
   '/MyKPs/WR-test/weekly-report.js',
   '/MyKPs/WR-test/chart.js',
   '/MyKPs/?kps=1',
-  '/MyKPs/MyKPs.png'
+  '/MyKPs/MyKPs.png',
+  '/MyKPs/NNTT.php',
+  '/MyKPs/dailyactivity/',
+  '/MyKPs/landscape.js',
 ];
 
 self.addEventListener('install', event => {
@@ -32,8 +35,8 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+          if (cacheName.startsWith('MyKps-') && cacheName !== CACHE_NAME) {
+            console.log('删除旧 MyKps 缓存:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -44,21 +47,13 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+  const isApiRequest = url.pathname.startsWith('/MyKPs/api/');
+  const isGetRequest = event.request.method === 'GET';
 
-  if (url.pathname.startsWith('/MyKPs/api/') && url.pathname.endsWith('.php')) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return new Response(
-          JSON.stringify({ error: 'Network error, please check your connection' }),
-          {
-            status: 503,
-            statusText: 'Service Unavailable',
-            headers: { 'Content-Type': 'application/json' }
-          }
-        );
-      })
-    );
-    return; 
+  if (isApiRequest || !isGetRequest) {
+    const request = isApiRequest ? new Request(event.request, { cache: 'no-store' }) : event.request;
+    event.respondWith(fetch(request));
+    return;
   }
 
   event.respondWith(
@@ -86,6 +81,7 @@ self.addEventListener('fetch', event => {
   );
 });
 
+/* Deprecated notifications: kept commented out for reference.
 self.addEventListener('push', event => {
   let data = {};
   try {
@@ -113,7 +109,6 @@ self.addEventListener('notificationclick', event => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-
       for (const client of windowClients) {
         if (client.url === targetUrl && 'focus' in client) {
           return client.focus();
@@ -125,3 +120,4 @@ self.addEventListener('notificationclick', event => {
     })
   );
 });
+*/

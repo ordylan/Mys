@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
     <title>Next NTT</title>
         <style>
@@ -197,9 +198,10 @@ border-width: 2px;
     
 </head>
 <body>
-    <h1>Next New-TimeTable</h1>
+<!--    <h1>Next New-TimeTable</h1>
 <a href="ToDos.php" style="margin-left:8px" >[ToDos]</a><a href="/MyKPs/?kps=1" style="margin-left:8px" >[KPs]</a><a href="WR-test/" target="_blank" style="margin-left:8px" >[test]</a>
-    <div id="currentTimer" style="border:1px solid #ccc; padding:10px; margin-bottom:20px;">
+ Remember to <a href="api/DoLogin.html">Login</a> First!-->
+<div id="currentTimer" style="border:1px solid #ccc; padding:10px; margin-bottom:20px;">
         <h3>CurrentTask</h3>
         <div id="timerDisplay"></div>
         <button id="stopBtn" style="display:none;">STOP!!</button>
@@ -210,6 +212,7 @@ border-width: 2px;
 
     <button id="showAllKPSBtn">Others KPs</button>
     <button id="showStatsBtn">Learning totals</button>
+    <button id="showDailyTasksBtn">[Daily Tasks]</button>
 
     <div id="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
         <div style="background:#fff; margin:50px auto; padding:20px; width:80%; max-width:600px; max-height:80%; overflow:auto;">
@@ -271,7 +274,8 @@ border-width: 2px;
             container.appendChild(ul);
         }
 
-        async function startTimer(params) {
+             async function startTimer(params) {
+        if(!confirm('?? - kpsid:'+params.kpsId)) return;
             const data = await apiRequest(`${API_BASE}&action=start`, {
                 method: 'POST',
                 body: JSON.stringify(params)
@@ -404,6 +408,9 @@ border-width: 2px;
         document.getElementById('showAllKPSBtn').addEventListener('click', showAllKPS);
         document.getElementById('showStatsBtn').addEventListener('click', showStats);
         document.getElementById('modalClose').addEventListener('click', closeModal);
+        document.getElementById('showDailyTasksBtn').addEventListener('click', () => {
+            window.location.href = 'dailyactivity/';
+        });
         document.getElementById('modal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) closeModal();
         });
